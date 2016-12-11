@@ -37,12 +37,9 @@ func (cell *Cell) dump() {
   fmt.Println("DUMP", cell.x, cell.y, cell.pos, cell.grp, "--", cell.cand)
 }
 
-func (cell *Cell) to_s() string {
-  result := ""
-  for i := 0; i<len(cell.cand); i++ {
-    result += strconv.Itoa(cell.cand[i])
-  }
-  return result;
+func (cell *Cell)set_cand(c int) {
+  fmt.Println("set cand of", cell.x, ",", cell.y, "to", c)
+  cell.cand = []int{c}
 }
 
 func (cell *Cell) remove_cand(c int) bool {
@@ -65,6 +62,15 @@ func (cell *Cell) remove_cand(c int) bool {
   return updated
 }
 
+func (cell *Cell)has_cand(c int) bool {
+  for _, cand := range cell.cand {
+    if cand == c {
+      return true
+    }
+  }
+  return false
+}
+
 
 type Board struct {
   cells []*Cell
@@ -81,49 +87,93 @@ func NewBoard(str string) *Board {
   return board
 }
 
-func (board *Board) to_s() string {
-  result := ""
-  for y := 0; y<9; y++ {
-    for x := 0; x<9; x++ {
-      if result != "" {
-        result += ","
+func (board *Board) solve_once_sub1(ls []int) bool {
+  //fmt.Println("board.solve_once_sub1(",ls,")")
+  updated := false
+  for _, p := range ls {
+    if len(board.cells[p].cand) == 1 {
+      for _, p0 := range ls {
+        if p != p0 {
+          if board.cells[p0].remove_cand(board.cells[p].cand[0]) {
+            updated = true
+          }
+        }
       }
-      result += board.cells[x + y * 9].to_s()
     }
   }
-  return result
+  return updated
+}
+
+func (board *Board) solve_once_sub2(ls []int) bool {
+  //fmt.Println("board.solve_once_sub2(", ls, ")")
+  updated := false
+  candcounter :=[]int{-1,0,0,0,0,0,0,0,0,0}
+  for _, pos := range ls {
+    for _, c := range board.cells[pos].cand {
+      candcounter[c] += 1
+    }
+  }
+  for i:=1; i<10; i++ {
+    if candcounter[i] == 1 {
+      for _, pos := range ls {
+        if len(board.cells[pos].cand) > 1 {
+          if board.cells[pos].has_cand(i) {
+            board.cells[pos].set_cand(i)
+            updated = true
+            break
+          }
+        }
+      }
+    }
+  }
+  return updated
+}
+
+func (board *Board) solve_once_sub(ls []int) bool {
+  //fmt.Println("solve_once_sub(", ls, ")")
+  updated := false
+  if board.solve_once_sub1(ls) {
+    updated = true
+  }
+  if board.solve_once_sub2(ls) {
+    updated = true
+  }
+  return updated
 }
 
 func (board *Board) solve_once() bool {
   updated := false
-  for p:=0; p<9*9; p++ {
-    if len(board.cells[p].cand) == 1 {
-      c := board.cells[p].cand[0]
-      y := board.cells[p].y
-      for x:=0;x<9;x++ {
-        if board.cells[p].x != x {
-          if board.cells[y*9+x].remove_cand(c) {
-            updated = true
-          }
-        }
+  for x:=0; x<9; x++ {
+    ls := []int{}
+    for pos:=0; pos<9*9; pos++ {
+      if board.cells[pos].x == x {
+        ls = append(ls, pos)
       }
-      x := board.cells[p].x
-      for y:=0;y<9;y++ {
-        if board.cells[p].y != y {
-          if board.cells[y*9+x].remove_cand(c) {
-            updated = true
-          }
-        }
+    }
+    if board.solve_once_sub(ls) {
+      updated = true
+    }
+  }
+  for y:=0; y<9; y++ {
+    ls := []int{}
+    for pos:=0; pos<9*9; pos++ {
+      if board.cells[pos].y == y {
+        ls = append(ls, pos)
       }
-      for p0:=0; p0<9*9; p0++ {
-        if p != p0 {
-          if board.cells[p].grp == board.cells[p0].grp {
-            if board.cells[p0].remove_cand(c) {
-              updated = true
-            }
-          }
-        }
+    }
+    if board.solve_once_sub(ls) {
+      updated = true
+    }
+  }
+  for g:=0; g<9; g++ {
+    ls := []int{}
+    for pos:=0; pos<9*9; pos++ {
+      if board.cells[pos].grp == g {
+        ls = append(ls, pos)
       }
+    }
+    if board.solve_once_sub(ls) {
+      updated = true
     }
   }
   return updated
@@ -169,11 +219,8 @@ func (board *Board) dump() {
 }
 
 func main() {
-  fmt.Println("--------------------")
   b := NewBoard(os.Args[1])
-  b.dump()
   b.show()
   b.solve()
   b.show()
-  b.dump()
 }
