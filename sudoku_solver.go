@@ -77,11 +77,11 @@ func NewBoard(str string) *Board {
 // -----------------------------------------------------------------------
 func (b *Board) clone() *Board {
 	s := ""
-	for i:=0; i<9*9; i++ {
+	for i := 0; i < 9*9; i++ {
 		s += "0"
 	}
 	newboard := NewBoard(s)
-	for i:=0; i<9*9; i++ {
+	for i := 0; i < 9*9; i++ {
 		newboard.cells[i].cands = b.cells[i].cands
 	}
 	return newboard
@@ -214,56 +214,89 @@ func solve_sub2(b *Board, x, y int) int {
 }
 
 // ---------------------------------------------------------------------------
+func solve_sub(b *Board, x, y int) int {
+	if len(b.cells[y*9+x].cands) == 1 {
+		return solve_sub1(b, x, y)
+	}
+	return solve_sub2(b, x, y)
+}
+
+// ---------------------------------------------------------------------------
 func solve_once(b *Board) int {
 	result := 0
-	for y := 0; y < 9; y++ {
-		for x := 0; x < 9; x++ {
-			res := 0
-			if len(b.cells[y*9+x].cands) == 1 {
-				res = solve_sub1(b, x, y)
-			} else {
-				res = solve_sub2(b, x, y)
+	for {
+		updated := false
+		for y := 0; y < 9; y++ {
+			for x := 0; x < 9; x++ {
+				res := solve_sub(b, x, y)
+				if res == -1 {
+					// 矛盾ができたらインプットがおかしい。エラー
+					return -1
+				}
+				if res == 1 {
+					updated = true
+					result = 1
+				}
 			}
-			if res == -1 {
-				return -1
-			}
-			if res == 1 {
-				result = 1
-			}
+		}
+		if !updated {
+			break
 		}
 	}
 	return result
 }
 
 // ---------------------------------------------------------------------------
-func guess(b *Board) int {
+func guess(b *Board, depth int) int {
+	fmt.Println("guess depth=", depth)
+	res := solve_once(b)
+	if res == -1 {
+		return -1
+	}
 	for y := 0; y < 9; y++ {
 		for x := 0; x < 9; x++ {
+			if depth == 0 {
+				fmt.Println("trying", x, ",", y)
+			}
 			if len(b.cells[y*9+x].cands) > 1 {
 				for _, cand := range b.cells[y*9+x].cands {
 					tmp := b.clone()
 					tmp.cells[y*9+x].cands = []int{cand}
 					if solve_once(tmp) == -1 {
 						b.cells[y*9+x].remove_cand(cand)
+						return 1
+					}
+					if guess(tmp, depth+1) == 1 {
+						return solve_once(tmp)
 					}
 				}
 			}
 		}
 	}
 	return 0
-	
+
 }
 
 // ---------------------------------------------------------------------------
 func solve(b *Board) bool {
+	if solve_once(b) == -1 {
+		return false
+	}
 	for {
+		if b.is_solved() {
+			return true
+		}
+		fmt.Println("current status")
+		b.show()
+		if guess(b, 0) == 0 {
+			return false
+		}
 		res := solve_once(b)
 		if res == -1 {
 			return false
 		}
-		if b.is_solved() {
-			return true
-		}
+		fmt.Println("after guess")
+		b.show()
 	}
 	return false
 }
@@ -271,7 +304,6 @@ func solve(b *Board) bool {
 func main() {
 	b := NewBoard(os.Args[1])
 	if b != nil {
-		b.show()
 		solve(b)
 		b.show()
 	}
