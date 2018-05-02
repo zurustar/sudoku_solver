@@ -228,19 +228,26 @@ func Solve(b *Board) (BoardState, *Board) {
 }
 
 func main() {
-	for _, q := range os.Args[1:] {
-		board := NewBoard()
-		for i, c := range q {
-			v, err := strconv.Atoi(string(c))
-			if err == nil {
-				if v != 0 {
-					board.cells[i] = []int{v}
-				}
-			}
+	if len(os.Args) != 2 {
+		os.Exit(1)
+	}
+	if len(os.Args[1]) != 81 {
+		os.Exit(1)
+	}
+	board := NewBoard()
+	for i, c := range os.Args[1] {
+		v, err := strconv.Atoi(string(c))
+		if err != nil {
+			os.Exit(1)
 		}
-		result, board := Solve(board)
-		if result == SOLVED {
-			board.Show()
+		if v != 0 {
+			board.cells[i] = []int{v}
 		}
 	}
+	result, board := Solve(board)
+	if result == SOLVED {
+		board.Show()
+		os.Exit(0)
+	}
+	os.Exit(1)
 }
