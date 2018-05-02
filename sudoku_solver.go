@@ -58,7 +58,7 @@ func NewBoard() *Board {
 	return b
 }
 
-func (b *Board) ToString() string {
+func (board *Board) ToString() string {
 	s := ""
 	for row := 0; row < 9; row++ {
 		if row%3 == 0 {
@@ -69,8 +69,8 @@ func (b *Board) ToString() string {
 				s += "|"
 			}
 			i := row*9 + column
-			if len(b.cells[i]) == 1 {
-				s += strconv.Itoa(b.cells[i][0])
+			if len(board.cells[i]) == 1 {
+				s += strconv.Itoa(board.cells[i][0])
 			} else {
 				s += "0"
 			}
@@ -81,15 +81,15 @@ func (b *Board) ToString() string {
 	return s
 }
 
-func (b *Board) CopyFrom(src *Board) {
+func (board *Board) CopyFrom(src *Board) {
 	for pos := 0; pos < 9*9; pos++ {
-		b.cells[pos] = src.cells[pos]
+		board.cells[pos] = src.cells[pos]
 	}
 }
 
-func (b *Board) Validate() BoardState {
+func (board *Board) Validate() BoardState {
 	for pos := 0; pos < 9*9; pos++ {
-		switch len(b.cells[pos]) {
+		switch len(board.cells[pos]) {
 		case 0:
 			return INVALID
 		case 1:
@@ -100,12 +100,12 @@ func (b *Board) Validate() BoardState {
 	return SOLVED
 }
 
-func (b *Board) Show() {
-	fmt.Println(b.ToString())
+func (board *Board) Show() {
+	fmt.Println(board.ToString())
 }
 
-func (b *Board) Find(pos, value int) int {
-	for i, v := range b.cells[pos] {
+func (board *Board) Find(pos, value int) int {
+	for i, v := range board.cells[pos] {
 		if v == value {
 			return i
 		}
@@ -113,10 +113,10 @@ func (b *Board) Find(pos, value int) int {
 	return -1
 }
 
-func (b *Board) Remove(pos, value int) bool {
+func (board *Board) Remove(pos, value int) bool {
 	result := false
 	cands := []int{}
-	for _, v := range b.cells[pos] {
+	for _, v := range board.cells[pos] {
 		if v == value {
 			result = true
 		} else {
@@ -124,15 +124,15 @@ func (b *Board) Remove(pos, value int) bool {
 		}
 	}
 	if result {
-		b.cells[pos] = cands
+		board.cells[pos] = cands
 	}
 	return result
 }
 
-func (b *Board) _Update1() bool {
+func (board *Board) _Update1() bool {
 	updated := false
 	for src_pos := 0; src_pos < 9*9; src_pos++ {
-		if len(b.cells[src_pos]) != 1 {
+		if len(board.cells[src_pos]) != 1 {
 			continue
 		}
 		for dst_pos := 0; dst_pos < 9*9; dst_pos++ {
@@ -141,7 +141,7 @@ func (b *Board) _Update1() bool {
 			}
 			for target := 0; target < 3; target++ {
 				if dic[src_pos][target] == dic[dst_pos][target] {
-					if b.Remove(dst_pos, b.cells[src_pos][0]) {
+					if board.Remove(dst_pos, board.cells[src_pos][0]) {
 						updated = true
 					}
 				}
@@ -151,14 +151,14 @@ func (b *Board) _Update1() bool {
 	return updated
 }
 
-func (b *Board) _Update2() bool {
+func (board *Board) _Update2() bool {
 	updated := false
 	for src_pos := 0; src_pos < 9*9; src_pos++ {
-		if len(b.cells[src_pos]) == 1 {
+		if len(board.cells[src_pos]) == 1 {
 			continue
 		}
 		for target := 0; target < 3; target++ {
-			for _, cand := range b.cells[src_pos] {
+			for _, cand := range board.cells[src_pos] {
 				found := false
 				for dst_pos := 0; dst_pos < 9*9; dst_pos++ {
 					if src_pos == dst_pos {
@@ -167,12 +167,12 @@ func (b *Board) _Update2() bool {
 					if dic[src_pos][target] != dic[dst_pos][target] {
 						continue
 					}
-					if b.Find(dst_pos, cand) >= 0 {
+					if board.Find(dst_pos, cand) >= 0 {
 						found = true
 					}
 				}
 				if found == false {
-					b.cells[src_pos] = []int{cand}
+					board.cells[src_pos] = []int{cand}
 					updated = true
 				}
 			}
@@ -181,12 +181,12 @@ func (b *Board) _Update2() bool {
 	return updated
 }
 
-func (b *Board) Update() {
+func (board *Board) Update() {
 	updated := true
 	for updated {
-		updated = b._Update1()
+		updated = board._Update1()
 		if !updated {
-			updated = b._Update2()
+			updated = board._Update2()
 		}
 		if !updated {
 			break
@@ -194,16 +194,16 @@ func (b *Board) Update() {
 	}
 }
 
-func Solve(b *Board) (BoardState, *Board) {
-	b.Update()
-	if b.Validate() == INVALID {
+func Solve(board *Board) (BoardState, *Board) {
+	board.Update()
+	if board.Validate() == INVALID {
 		return INVALID, nil
 	}
 	for pos := 0; pos < 9*9; pos++ {
-		if len(b.cells[pos]) > 1 {
-			for _, cand := range b.cells[pos] {
+		if len(board.cells[pos]) > 1 {
+			for _, cand := range board.cells[pos] {
 				_b := NewBoard()
-				_b.CopyFrom(b)
+				_b.CopyFrom(board)
 				_b.cells[pos] = []int{cand}
 				result, _b := Solve(_b)
 				if result == SOLVED {
@@ -212,7 +212,7 @@ func Solve(b *Board) (BoardState, *Board) {
 			}
 		}
 	}
-	return b.Validate(), b
+	return board.Validate(), board
 }
 
 func main() {
