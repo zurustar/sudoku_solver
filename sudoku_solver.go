@@ -1,310 +1,246 @@
 package main
 
-import "os"
-import "fmt"
-import "strings"
-import "strconv"
+import (
+	"fmt"
+	"os"
+	"strconv"
+)
 
-// =======================================================================
-type Cell struct {
-	y     int
-	x     int
-	cands []int
+type BoardState int
+
+const (
+	SOLVED BoardState = iota
+	NOT_SOLVED
+	INVALID
+)
+
+var dic = [9 * 9][3]int{
+	{0, 0, 0}, {1, 0, 0}, {2, 0, 0},
+	{3, 0, 1}, {4, 0, 1}, {5, 0, 1},
+	{6, 0, 2}, {7, 0, 2}, {8, 0, 2},
+	{0, 1, 0}, {1, 1, 0}, {2, 1, 0},
+	{3, 1, 1}, {4, 1, 1}, {5, 1, 1},
+	{6, 1, 2}, {7, 1, 2}, {8, 1, 2},
+	{0, 2, 0}, {1, 2, 0}, {2, 2, 0},
+	{3, 2, 1}, {4, 2, 1}, {5, 2, 1},
+	{6, 2, 2}, {7, 2, 2}, {8, 2, 2},
+	{0, 3, 3}, {1, 3, 3}, {2, 3, 3},
+	{3, 3, 4}, {4, 3, 4}, {5, 3, 4},
+	{6, 3, 5}, {7, 3, 5}, {8, 3, 5},
+	{0, 4, 3}, {1, 4, 3}, {2, 4, 3},
+	{3, 4, 4}, {4, 4, 4}, {5, 4, 4},
+	{6, 4, 5}, {7, 4, 5}, {8, 4, 5},
+	{0, 5, 3}, {1, 5, 3}, {2, 5, 3},
+	{3, 5, 4}, {4, 5, 4}, {5, 5, 4},
+	{6, 5, 5}, {7, 5, 5}, {8, 5, 5},
+	{0, 6, 6}, {1, 6, 6}, {2, 6, 6},
+	{3, 6, 7}, {4, 6, 7}, {5, 6, 7},
+	{6, 6, 8}, {7, 6, 8}, {8, 6, 8},
+	{0, 7, 6}, {1, 7, 6}, {2, 7, 6},
+	{3, 7, 7}, {4, 7, 7}, {5, 7, 7},
+	{6, 7, 8}, {7, 7, 8}, {8, 7, 8},
+	{0, 8, 6}, {1, 8, 6}, {2, 8, 6},
+	{3, 8, 7}, {4, 8, 7}, {5, 8, 7},
+	{6, 8, 8}, {7, 8, 8}, {8, 8, 8},
 }
 
-// -----------------------------------------------------------------------
-func NewCell(x, y, v int) *Cell {
-	cell := new(Cell)
-	cell.x = x
-	cell.y = y
-	if v == 0 {
-		cell.cands = []int{1, 2, 3, 4, 5, 6, 7, 8, 9}
-	} else {
-		cell.cands = []int{v}
-	}
-	return cell
-}
-
-// -----------------------------------------------------------------------
-func (cell *Cell) remove_cand(cand int) int {
-	tmp := []int{}
-	for _, c := range cell.cands {
-		if c != cand {
-			tmp = append(tmp, c)
-		}
-	}
-	if len(tmp) == 0 {
-		return -1
-	}
-	if len(tmp) == len(cell.cands) {
-		return 0
-	}
-	cell.cands = tmp
-	return 1
-}
-
-// -----------------------------------------------------------------------
-func (cell *Cell) has_cand(cand int) bool {
-	for _, c := range cell.cands {
-		if c == cand {
-			return true
-		}
-	}
-	return false
-}
-
-// =======================================================================
 type Board struct {
-	cells []*Cell
+	cells [9 * 9][]int
 }
 
-// -----------------------------------------------------------------------
-func NewBoard(str string) *Board {
-	if len(str) != 9*9 {
-		return nil
-	}
-	board := new(Board)
-	tmp := strings.Split(str, "")
-	for y := 0; y < 9; y++ {
-		for x := 0; x < 9; x++ {
-			i, _ := strconv.Atoi(tmp[y*9+x])
-			board.cells = append(board.cells, NewCell(x, y, i))
+func NewBoard() *Board {
+	b := new(Board)
+	for row := 0; row < 9; row++ {
+		for column := 0; column < 9; column++ {
+			b.cells[row*9+column] = []int{1, 2, 3, 4, 5, 6, 7, 8, 9}
 		}
 	}
-	return board
+	return b
 }
 
-// -----------------------------------------------------------------------
-func (b *Board) clone() *Board {
+func (b *Board) ToString() string {
 	s := ""
-	for i := 0; i < 9*9; i++ {
-		s += "0"
-	}
-	newboard := NewBoard(s)
-	for i := 0; i < 9*9; i++ {
-		newboard.cells[i].cands = b.cells[i].cands
-	}
-	return newboard
-}
-
-// -----------------------------------------------------------------------
-func (b *Board) is_solved() bool {
-	for i := 0; i < 9*9; i++ {
-		if len(b.cells[i].cands) != 1 {
-			return false
+	for row := 0; row < 9; row++ {
+		if row%3 == 0 {
+			s += "+---+---+---+\n"
 		}
-	}
-	return true
-}
-
-// -----------------------------------------------------------------------
-func (board *Board) show() {
-	for y := 0; y < 9; y++ {
-		if y%3 == 0 {
-			fmt.Println("+---+---+---+")
-		}
-		s := ""
-		for x := 0; x < 9; x++ {
-			if x%3 == 0 {
+		for column := 0; column < 9; column++ {
+			if column%3 == 0 {
 				s += "|"
 			}
-			if len(board.cells[y*9+x].cands) == 1 {
-				s += strconv.Itoa(board.cells[y*9+x].cands[0])
+			i := row*9 + column
+			if len(b.cells[i]) == 1 {
+				s += strconv.Itoa(b.cells[i][0])
 			} else {
-				s += " "
+				s += "0"
 			}
 		}
-		fmt.Println(s + "|")
+		s += "|\n"
 	}
-	fmt.Println("+---+---+---+")
+	s += "+---+---+---+"
+	return s
 }
 
-// ---------------------------------------------------------------------------
-func solve_sub1(b *Board, x, y int) int {
-	result := 0
-	cand := b.cells[y*9+x].cands[0]
-	for i := 0; i < 9; i++ {
-		if i != x {
-			ret := b.cells[y*9+i].remove_cand(cand)
-			if ret == -1 {
-				return -1
-			}
-			if ret == 1 {
-				result = 1
-			}
-		}
-		if i != y {
-			ret := b.cells[i*9+x].remove_cand(cand)
-			if ret == -1 {
-				return -1
-			}
-			if ret == 1 {
-				result = 1
-			}
+func (b *Board) Set(src *Board) {
+	for pos := 0; pos < 9*9; pos++ {
+		b.cells[pos] = src.cells[pos]
+	}
+}
+
+func (b *Board) Validate() BoardState {
+	for pos := 0; pos < 9*9; pos++ {
+		switch len(b.cells[pos]) {
+		case 0:
+			return INVALID
+		case 1:
+		default:
+			return NOT_SOLVED
 		}
 	}
-	mx := x - x%3
-	my := y - y%3
-	for ty := my; ty < my+3; ty++ {
-		for tx := mx; tx < mx+3; tx++ {
-			if !(x == tx && y == ty) {
-				ret := b.cells[ty*9+tx].remove_cand(cand)
-				if ret == -1 {
-					return -1
-				}
-				if ret == 1 {
-					result = 1
-				}
-			}
+	return SOLVED
+}
+
+func (b *Board) Show() {
+	fmt.Println(b.ToString())
+}
+
+func (b *Board) Find(pos, value int) int {
+	for i, v := range b.cells[pos] {
+		if v == value {
+			return i
 		}
+	}
+	return -1
+}
+
+func (b *Board) Remove(pos, value int) bool {
+	result := false
+	cands := []int{}
+	for _, v := range b.cells[pos] {
+		if v == value {
+			result = true
+		} else {
+			cands = append(cands, v)
+		}
+	}
+	if result {
+		b.cells[pos] = cands
 	}
 	return result
 }
 
-// ---------------------------------------------------------------------------
-func solve_sub2(b *Board, x, y int) int {
-	for _, cand := range b.cells[y*9+x].cands {
-		found := false
-		for tx := 0; tx < 9; tx++ {
-			if tx != x {
-				if b.cells[y*9+tx].has_cand(cand) {
-					found = true
-					break
-				}
+func (b *Board) _Update1() bool {
+	updated := false
+	for src_column := 0; src_column < 9; src_column++ {
+		for src_row := 0; src_row < 9; src_row++ {
+			src_pos := src_column*9 + src_row
+			if len(b.cells[src_pos]) != 1 {
+				continue
 			}
-		}
-		if !found {
-			b.cells[y*9+x].cands = []int{cand}
-			return 1
-		}
-
-		found = false
-		for ty := 0; ty < 9; ty++ {
-			if ty != y {
-				if b.cells[ty*9+x].has_cand(cand) {
-					found = true
-					break
-				}
-			}
-		}
-		if !found {
-			b.cells[y*9+x].cands = []int{cand}
-			return 1
-		}
-
-		found = false
-		mx := x - x%3
-		my := y - y%3
-		for ty := my; ty < my+3; ty++ {
-			for tx := mx; tx < mx+3; tx++ {
-				if !(x == tx && y == ty) {
-					if b.cells[ty*9+tx].has_cand(cand) {
-						found = true
-						break
+			for dst_column := 0; dst_column < 9; dst_column++ {
+				for dst_row := 0; dst_row < 9; dst_row++ {
+					dst_pos := dst_column*9 + dst_row
+					if src_pos == dst_pos {
+						continue
+					}
+					for target := 0; target < 3; target++ {
+						if dic[src_pos][target] == dic[dst_pos][target] {
+							if b.Remove(dst_pos, b.cells[src_pos][0]) {
+								updated = true
+							}
+						}
 					}
 				}
 			}
 		}
-		if !found {
-			b.cells[y*9+x].cands = []int{cand}
-			return 1
-		}
 	}
-	return 0
+	return updated
 }
 
-// ---------------------------------------------------------------------------
-func solve_sub(b *Board, x, y int) int {
-	if len(b.cells[y*9+x].cands) == 1 {
-		return solve_sub1(b, x, y)
-	}
-	return solve_sub2(b, x, y)
-}
-
-// ---------------------------------------------------------------------------
-func solve_once(b *Board) int {
-	result := 0
-	for {
-		updated := false
-		for y := 0; y < 9; y++ {
-			for x := 0; x < 9; x++ {
-				res := solve_sub(b, x, y)
-				if res == -1 {
-					// 矛盾ができたらインプットがおかしい。エラー
-					return -1
-				}
-				if res == 1 {
-					updated = true
-					result = 1
+func (b *Board) _Update2() bool {
+	updated := false
+	for src_column := 0; src_column < 9; src_column++ {
+		for src_row := 0; src_row < 9; src_row++ {
+			src_pos := src_column*9 + src_row
+			if len(b.cells[src_pos]) == 1 {
+				continue
+			}
+			for target := 0; target < 3; target++ {
+				for _, cand := range b.cells[src_pos] {
+					found := false
+					for dst_column := 0; dst_column < 9; dst_column++ {
+						for dst_row := 0; dst_row < 9; dst_row++ {
+							dst_pos := dst_column*9 + dst_row
+							if src_pos == dst_pos {
+								continue
+							}
+							if dic[src_pos][target] != dic[dst_pos][target] {
+								continue
+							}
+							if b.Find(dst_pos, cand) >= 0 {
+								found = true
+							}
+						}
+					}
+					if found == false {
+						b.cells[src_pos] = []int{cand}
+						updated = true
+					}
 				}
 			}
+		}
+	}
+	return updated
+}
+
+func (b *Board) Update() {
+	updated := true
+	for updated {
+		updated = b._Update1()
+		if !updated {
+			updated = b._Update2()
 		}
 		if !updated {
 			break
 		}
 	}
-	return result
 }
 
-// ---------------------------------------------------------------------------
-func guess(b *Board, depth int) int {
-	fmt.Println("guess depth=", depth)
-	res := solve_once(b)
-	if res == -1 {
-		return -1
+func Solve(b *Board) (BoardState, *Board) {
+	b.Update()
+	if b.Validate() == INVALID {
+		return INVALID, nil
 	}
-	for y := 0; y < 9; y++ {
-		for x := 0; x < 9; x++ {
-			if depth == 0 {
-				fmt.Println("trying", x, ",", y)
-			}
-			if len(b.cells[y*9+x].cands) > 1 {
-				for _, cand := range b.cells[y*9+x].cands {
-					tmp := b.clone()
-					tmp.cells[y*9+x].cands = []int{cand}
-					if solve_once(tmp) == -1 {
-						b.cells[y*9+x].remove_cand(cand)
-						return 1
-					}
-					if guess(tmp, depth+1) == 1 {
-						return solve_once(tmp)
-					}
+	for pos := 0; pos < 9*9; pos++ {
+		if len(b.cells[pos]) > 1 {
+			for _, cand := range b.cells[pos] {
+				_b := NewBoard()
+				_b.Set(b)
+				_b.cells[pos] = []int{cand}
+				result, _b := Solve(_b)
+				if result == SOLVED {
+					return SOLVED, _b
 				}
 			}
 		}
 	}
-	return 0
-
-}
-
-// ---------------------------------------------------------------------------
-func solve(b *Board) bool {
-	if solve_once(b) == -1 {
-		return false
-	}
-	for {
-		if b.is_solved() {
-			return true
-		}
-		fmt.Println("current status")
-		b.show()
-		if guess(b, 0) == 0 {
-			return false
-		}
-		res := solve_once(b)
-		if res == -1 {
-			return false
-		}
-		fmt.Println("after guess")
-		b.show()
-	}
-	return false
+	return b.Validate(), b
 }
 
 func main() {
-	b := NewBoard(os.Args[1])
-	if b != nil {
-		solve(b)
-		b.show()
+	for _, q := range os.Args[1:] {
+		board := NewBoard()
+		for i, c := range q {
+			v, err := strconv.Atoi(string(c))
+			if err == nil {
+				if v != 0 {
+					board.cells[i] = []int{v}
+				}
+			}
+		}
+		result, board := Solve(board)
+		if result == SOLVED {
+			board.Show()
+		}
 	}
 }
