@@ -131,24 +131,18 @@ func (b *Board) Remove(pos, value int) bool {
 
 func (b *Board) _Update1() bool {
 	updated := false
-	for src_column := 0; src_column < 9; src_column++ {
-		for src_row := 0; src_row < 9; src_row++ {
-			src_pos := src_column*9 + src_row
-			if len(b.cells[src_pos]) != 1 {
+	for src_pos := 0; src_pos < 9*9; src_pos++ {
+		if len(b.cells[src_pos]) != 1 {
+			continue
+		}
+		for dst_pos := 0; dst_pos < 9*9; dst_pos++ {
+			if src_pos == dst_pos {
 				continue
 			}
-			for dst_column := 0; dst_column < 9; dst_column++ {
-				for dst_row := 0; dst_row < 9; dst_row++ {
-					dst_pos := dst_column*9 + dst_row
-					if src_pos == dst_pos {
-						continue
-					}
-					for target := 0; target < 3; target++ {
-						if dic[src_pos][target] == dic[dst_pos][target] {
-							if b.Remove(dst_pos, b.cells[src_pos][0]) {
-								updated = true
-							}
-						}
+			for target := 0; target < 3; target++ {
+				if dic[src_pos][target] == dic[dst_pos][target] {
+					if b.Remove(dst_pos, b.cells[src_pos][0]) {
+						updated = true
 					}
 				}
 			}
@@ -159,33 +153,27 @@ func (b *Board) _Update1() bool {
 
 func (b *Board) _Update2() bool {
 	updated := false
-	for src_column := 0; src_column < 9; src_column++ {
-		for src_row := 0; src_row < 9; src_row++ {
-			src_pos := src_column*9 + src_row
-			if len(b.cells[src_pos]) == 1 {
-				continue
-			}
-			for target := 0; target < 3; target++ {
-				for _, cand := range b.cells[src_pos] {
-					found := false
-					for dst_column := 0; dst_column < 9; dst_column++ {
-						for dst_row := 0; dst_row < 9; dst_row++ {
-							dst_pos := dst_column*9 + dst_row
-							if src_pos == dst_pos {
-								continue
-							}
-							if dic[src_pos][target] != dic[dst_pos][target] {
-								continue
-							}
-							if b.Find(dst_pos, cand) >= 0 {
-								found = true
-							}
-						}
+	for src_pos := 0; src_pos < 9*9; src_pos++ {
+		if len(b.cells[src_pos]) == 1 {
+			continue
+		}
+		for target := 0; target < 3; target++ {
+			for _, cand := range b.cells[src_pos] {
+				found := false
+				for dst_pos := 0; dst_pos < 9*9; dst_pos++ {
+					if src_pos == dst_pos {
+						continue
 					}
-					if found == false {
-						b.cells[src_pos] = []int{cand}
-						updated = true
+					if dic[src_pos][target] != dic[dst_pos][target] {
+						continue
 					}
+					if b.Find(dst_pos, cand) >= 0 {
+						found = true
+					}
+				}
+				if found == false {
+					b.cells[src_pos] = []int{cand}
+					updated = true
 				}
 			}
 		}
