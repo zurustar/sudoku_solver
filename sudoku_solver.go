@@ -81,7 +81,7 @@ func (b *Board) ToString() string {
 	return s
 }
 
-func (b *Board) Set(src *Board) {
+func (b *Board) CopyFrom(src *Board) {
 	for pos := 0; pos < 9*9; pos++ {
 		b.cells[pos] = src.cells[pos]
 	}
@@ -203,7 +203,7 @@ func Solve(b *Board) (BoardState, *Board) {
 		if len(b.cells[pos]) > 1 {
 			for _, cand := range b.cells[pos] {
 				_b := NewBoard()
-				_b.Set(b)
+				_b.CopyFrom(b)
 				_b.cells[pos] = []int{cand}
 				result, _b := Solve(_b)
 				if result == SOLVED {
