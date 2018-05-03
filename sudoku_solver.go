@@ -234,7 +234,7 @@ func Solve(board *Board) (BoardState, *Board) {
 					new_board.cells[pos] = []int{cand}
 					result, new_board := Solve(new_board)
 					if result == SOLVED {
-						return SOLVED, new_board 
+						return SOLVED, new_board
 					}
 				}
 			}
@@ -247,7 +247,7 @@ func main() {
 	if len(os.Args) != 2 {
 		os.Exit(1)
 	}
-	if len(os.Args[1]) != 81 {
+	if len(os.Args[1]) != 9*9 {
 		os.Exit(1)
 	}
 	board := NewBoard()
