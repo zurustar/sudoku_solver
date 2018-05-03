@@ -81,27 +81,44 @@ func (board *Board) ToString() string {
 	return s
 }
 
+func (board *Board) Show() {
+	fmt.Println(board.ToString())
+}
+
+func (board *Board) ShowDetail() {
+	s := ""
+	for row := 0; row < 9; row++ {
+		if row%3 == 0 {
+			s += "+---+---+---+\n"
+		}
+		for column := 0; column < 9; column++ {
+			if column%3 == 0 {
+				s += "|"
+			}
+			i := row*9 + column
+			if len(board.cells[i]) == 1 {
+				s += strconv.Itoa(board.cells[i][0])
+			} else {
+				s += "0"
+			}
+		}
+		s += "|"
+		for column := 0; column < 9; column++ {
+			if column%3 == 0 {
+				s += " "
+			}
+			s += strconv.Itoa(len(board.cells[row*9+column]))
+		}
+		s += "\n"
+	}
+	s += "+---+---+---+"
+	fmt.Println(s)
+}
+
 func (board *Board) CopyFrom(src *Board) {
 	for pos := 0; pos < 9*9; pos++ {
 		board.cells[pos] = src.cells[pos]
 	}
-}
-
-func (board *Board) Validate() BoardState {
-	for pos := 0; pos < 9*9; pos++ {
-		switch len(board.cells[pos]) {
-		case 0:
-			return INVALID
-		case 1:
-		default:
-			return NOT_SOLVED
-		}
-	}
-	return SOLVED
-}
-
-func (board *Board) Show() {
-	fmt.Println(board.ToString())
 }
 
 func (board *Board) Find(pos, value int) int {
@@ -196,23 +213,34 @@ func (board *Board) Update() {
 
 func Solve(board *Board) (BoardState, *Board) {
 	board.Update()
-	if board.Validate() == INVALID {
+	len_list := [10][]int{{}, {}, {}, {}, {}, {}, {}, {}, {}, {}}
+	for pos := 0; pos < 9*9; pos++ {
+		l := len(board.cells[pos])
+		len_list[l] = append(len_list[l], pos)
+	}
+	if len(len_list[0]) > 0 {
 		return INVALID, nil
 	}
-	for pos := 0; pos < 9*9; pos++ {
-		if len(board.cells[pos]) > 1 {
-			for _, cand := range board.cells[pos] {
-				_b := NewBoard()
-				_b.CopyFrom(board)
-				_b.cells[pos] = []int{cand}
-				result, _b := Solve(_b)
-				if result == SOLVED {
-					return SOLVED, _b
+	if len(len_list[1]) == 9*9 {
+		return SOLVED, board
+	}
+	//board.ShowDetail()
+	for i := 2; i < 10; i++ {
+		for _, pos := range len_list[i] {
+			if len(board.cells[pos]) > 1 {
+				for _, cand := range board.cells[pos] {
+					_b := NewBoard()
+					_b.CopyFrom(board)
+					_b.cells[pos] = []int{cand}
+					result, _b := Solve(_b)
+					if result == SOLVED {
+						return SOLVED, _b
+					}
 				}
 			}
 		}
 	}
-	return board.Validate(), board
+	return NOT_SOLVED, board
 }
 
 func main() {
