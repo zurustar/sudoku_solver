@@ -229,12 +229,12 @@ func Solve(board *Board) (BoardState, *Board) {
 		for _, pos := range len_list[i] {
 			if len(board.cells[pos]) > 1 {
 				for _, cand := range board.cells[pos] {
-					_b := NewBoard()
-					_b.CopyFrom(board)
-					_b.cells[pos] = []int{cand}
-					result, _b := Solve(_b)
+					new_board := NewBoard()
+					new_board.CopyFrom(board)
+					new_board.cells[pos] = []int{cand}
+					result, new_board := Solve(new_board)
 					if result == SOLVED {
-						return SOLVED, _b
+						return SOLVED, new_board 
 					}
 				}
 			}
