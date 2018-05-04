@@ -245,15 +245,18 @@ func Solve(board *Board) (BoardState, *Board) {
 
 func main() {
 	if len(os.Args) != 2 {
+		fmt.Fprintf(os.Stderr, "botがバグってます。すいません。")
 		os.Exit(1)
 	}
 	if len(os.Args[1]) != 9*9 {
+		fmt.Fprintf(os.Stderr, "問題のフォーマットがなんだかおかしいです。")
 		os.Exit(1)
 	}
 	board := NewBoard()
 	for i, c := range os.Args[1] {
 		v, err := strconv.Atoi(string(c))
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "なんだかおかしいです。")
 			os.Exit(1)
 		}
 		if v != 0 {
@@ -265,5 +268,6 @@ func main() {
 		board.Show()
 		os.Exit(0)
 	}
+	fmt.Fprintf(os.Stderr, "解けませんでした。申し訳ない。")
 	os.Exit(1)
 }
