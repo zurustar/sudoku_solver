@@ -45,6 +45,7 @@ func run() {
 	v := url.Values{}
 	v.Set("track", config.Username)
 	stream := api.PublicStreamFilter(v)
+	fmt.Println("ok")
 	for {
 		select {
 		case stream := <-stream.C:
@@ -54,7 +55,7 @@ func run() {
 				s = re.ReplaceAllString(s, "")
 				result := ""
 				if len(s) != 81 {
-					result = "問題がなにかおかしい気がします。"
+					result = "問題がおかしい気がします。"
 				} else {
 					out, err := exec.Command("./sudoku_solver", s).Output()
 					if err != nil {
@@ -64,11 +65,13 @@ func run() {
 					}
 				}
 				result = "@" + tweet.User.ScreenName + "\n" + result
-				posted, err := api.PostTweet(result, nil)
+				v := url.Values{}
+				v.Set("in_reply_to_status_id", tweet.IdStr)
+				posted, err := api.PostTweet(result, v)
 				if err != nil {
-					fmt.Println(err)
+					fmt.Println("ERROR ->", err)
 				} else {
-					fmt.Println(posted.Text)
+					fmt.Println("tweeted ->" , posted.Text)
 				}
 			default:
 			}
