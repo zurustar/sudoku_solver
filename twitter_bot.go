@@ -12,8 +12,8 @@ import (
 	"strings"
 )
 
-const ConfigFilePath = "../twitter_conf.json"
-const SudokuSolverFilePath = "./sudoku_solver"
+const ConfigFilePath = "/etc/sudoku_solver.json"
+const SudokuSolverFilePath = "/usr/local/bin/sudoku_solver/sudoku_solver"
 
 type Config struct {
 	Username          string `json:"username"`
