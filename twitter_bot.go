@@ -12,6 +12,9 @@ import (
 	"strings"
 )
 
+const ConfigFilePath = "../twitter_conf.json"
+const SudokuSolverFilePath = "./sudoku_solver"
+
 type Config struct {
 	Username          string `json:"username"`
 	ConsumerKey       string `json:"consumer_key"`
@@ -38,7 +41,7 @@ func load(filename string) *Config {
 
 func run() {
 	re := regexp.MustCompile(`[^0-9]`)
-	config := load("../twitter_conf.json")
+	config := load(ConfigFilePath)
 	anaconda.SetConsumerKey(config.ConsumerKey)
 	anaconda.SetConsumerSecret(config.ConsumerSecret)
 	api := anaconda.NewTwitterApi(config.AccessToken, config.AccessTokenSecret)
@@ -57,7 +60,7 @@ func run() {
 				if len(s) != 81 {
 					result = "問題がおかしい気がします。"
 				} else {
-					out, err := exec.Command("./sudoku_solver", s).Output()
+					out, err := exec.Command(SudokuSolverFilePath, s).Output()
 					if err != nil {
 						result = "私には解けませんでした。ごめんなさい。"
 					} else {
@@ -71,7 +74,7 @@ func run() {
 				if err != nil {
 					fmt.Println("ERROR ->", err)
 				} else {
-					fmt.Println("tweeted ->" , posted.Text)
+					fmt.Println("tweeted ->", posted.Text)
 				}
 			default:
 			}
