@@ -7,6 +7,7 @@ import (
 	"github.com/ChimeraCoder/anaconda"
 	"io/ioutil"
 	"log"
+	"log/syslog"
 	"net/url"
 	"os/exec"
 	"regexp"
@@ -41,6 +42,7 @@ func load(filename string) *Config {
 }
 
 func run(config_file_path string) {
+	log.Println("load configuration file:", config_file_path)
 	re := regexp.MustCompile(`[^0-9]`)
 	config := load(config_file_path)
 	anaconda.SetConsumerKey(config.ConsumerKey)
@@ -49,7 +51,7 @@ func run(config_file_path string) {
 	v := url.Values{}
 	v.Set("track", config.Username)
 	stream := api.PublicStreamFilter(v)
-	fmt.Println("ok")
+	log.Println("ok", config.Username)
 	for {
 		select {
 		case stream := <-stream.C:
@@ -57,6 +59,7 @@ func run(config_file_path string) {
 			case anaconda.Tweet:
 				s := strings.Replace(tweet.Text, config.Username, "", -1)
 				s = re.ReplaceAllString(s, "")
+				log.Println("received", s, "from", tweet.User.ScreenName)
 				result := ""
 				if len(s) != 81 {
 					result = "問題がおかしい気がします。"
@@ -73,7 +76,7 @@ func run(config_file_path string) {
 				v.Set("in_reply_to_status_id", tweet.IdStr)
 				posted, err := api.PostTweet(result, v)
 				if err != nil {
-					fmt.Println("ERROR ->", err)
+					log.Println("ERROR ->", err)
 				} else {
 					fmt.Println("tweeted ->", posted.Text)
 				}
@@ -84,6 +87,8 @@ func run(config_file_path string) {
 }
 
 func main() {
+	logger, _ := syslog.New(syslog.LOG_NOTICE|syslog.LOG_USER,"twitter_bot")
+	log.SetOutput(logger)
 	if len(os.Args) == 1 {
 		run(DefaultConfigFilePath)
 	} else {
