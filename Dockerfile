@@ -9,4 +9,4 @@ RUN git clone https://github.com/zurustar/sudoku_solver.git
 RUN go get github.com/ChimeraCoder/anaconda
 RUN cd /sudoku_solver && go build ./sudoku_solver.go
 RUN cd /sudoku_solver && go build ./twitter_bot.go
-CMD /sudoku_solver/sudoku_solver
+CMD /sudoku_solver/twitter_bot
