@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"encoding/json"
 	"fmt"
 	"github.com/ChimeraCoder/anaconda"
@@ -12,8 +13,7 @@ import (
 	"strings"
 )
 
-const ConfigFilePath = "/etc/sudoku_solver.json"
-const SudokuSolverFilePath = "/usr/local/bin/sudoku_solver/sudoku_solver"
+const DefaultConfigFilePath = "./config/sudoku_solver.json"
 
 type Config struct {
 	Username          string `json:"username"`
@@ -21,6 +21,7 @@ type Config struct {
 	ConsumerSecret    string `json:"consumer_secret"`
 	AccessToken       string `json:"access_token"`
 	AccessTokenSecret string `json:"access_token_secret"`
+	SudokuSolverCommand string `json:"sudoku_solver_command"`
 }
 
 func load(filename string) *Config {
@@ -39,9 +40,9 @@ func load(filename string) *Config {
 	return config
 }
 
-func run() {
+func run(config_file_path string) {
 	re := regexp.MustCompile(`[^0-9]`)
-	config := load(ConfigFilePath)
+	config := load(config_file_path)
 	anaconda.SetConsumerKey(config.ConsumerKey)
 	anaconda.SetConsumerSecret(config.ConsumerSecret)
 	api := anaconda.NewTwitterApi(config.AccessToken, config.AccessTokenSecret)
@@ -60,7 +61,7 @@ func run() {
 				if len(s) != 81 {
 					result = "問題がおかしい気がします。"
 				} else {
-					out, err := exec.Command(SudokuSolverFilePath, s).Output()
+					out, err := exec.Command(config.SudokuSolverCommand, s).Output()
 					if err != nil {
 						result = "私には解けませんでした。ごめんなさい。"
 					} else {
@@ -83,5 +84,9 @@ func run() {
 }
 
 func main() {
-	run()
+	if len(os.Args) == 1 {
+		run(DefaultConfigFilePath)
+	} else {
+		run(os.Args[1])
+	}
 }
