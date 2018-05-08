@@ -1,9 +1,17 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/ChimeraCoder/anaconda"
+	"io/ioutil"
+	"log"
+	"log/syslog"
+	"net/url"
 	"os"
+	"regexp"
 	"strconv"
+	"strings"
 )
 
 type BoardState int
@@ -65,23 +73,19 @@ func (board *Board) ToString() string {
 			s += "\n"
 		}
 		for column := 0; column < 9; column++ {
-			if column%3 == 0 {
-				s += " "
-			}
 			i := row*9 + column
 			if len(board.cells[i]) == 1 {
 				s += strconv.Itoa(board.cells[i][0])
 			} else {
 				s += "0"
 			}
+			if column%3 == 2 {
+				s += " "
+			}
 		}
 		s += "\n"
 	}
 	return s
-}
-
-func (board *Board) Show() {
-	fmt.Println(board.ToString())
 }
 
 func (board *Board) ShowDetail() {
@@ -242,18 +246,20 @@ func Solve(board *Board) (BoardState, *Board) {
 	return NOT_SOLVED, board
 }
 
-func main() {
-	if len(os.Args) != 2 {
-		os.Exit(1)
+func RunSolver(src string) string {
+	re := regexp.MustCompile(`[^0-9]`)
+	q := re.ReplaceAllString(src, "")
+	if len(q) != 9*9 {
+		log.Println("invalid question")
+		return ""
 	}
-	if len(os.Args[1]) != 9*9 {
-		os.Exit(1)
-	}
+	log.Println("solve", q)
 	board := NewBoard()
-	for i, c := range os.Args[1] {
+	for i, c := range q {
 		v, err := strconv.Atoi(string(c))
 		if err != nil {
-			os.Exit(1)
+			// bug?
+			return ""
 		}
 		if v != 0 {
 			board.cells[i] = []int{v}
@@ -261,8 +267,111 @@ func main() {
 	}
 	result, board := Solve(board)
 	if result == SOLVED {
-		board.Show()
-		os.Exit(0)
+		return board.ToString()
 	}
-	os.Exit(1)
+	return ""
+}
+
+func Load(filename string) string {
+	log.Println("load", filename)
+	fp, err := os.Open(filename)
+	if err != nil {
+		return ""
+	}
+	defer fp.Close()
+	result := ""
+	buf := make([]byte, 1024)
+	for {
+		n, err := fp.Read(buf)
+		if n == 0 {
+			break
+		}
+		if err != nil {
+			return ""
+		}
+		result += string(buf[:n])
+	}
+	return result
+}
+
+type Config struct {
+	Username            string `json:"username"`
+	ConsumerKey         string `json:"consumer_key"`
+	ConsumerSecret      string `json:"consumer_secret"`
+	AccessToken         string `json:"access_token"`
+	AccessTokenSecret   string `json:"access_token_secret"`
+	SudokuSolverCommand string `json:"sudoku_solver_command"`
+}
+
+func LoadBotConfiguration(filename string) *Config {
+	bytes, err := ioutil.ReadFile(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	config := new(Config)
+	err = json.Unmarshal(bytes, &config)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if strings.HasPrefix(config.Username, "@") == false {
+		config.Username = "@" + config.Username
+	}
+	return config
+}
+
+func RunTwitterBot(config_filename string) {
+	logger, _ := syslog.New(syslog.LOG_NOTICE|syslog.LOG_USER, "twitter_bot")
+	log.SetOutput(logger)
+	config := LoadBotConfiguration(config_filename)
+	re := regexp.MustCompile(`[^0-9]`)
+	anaconda.SetConsumerKey(config.ConsumerKey)
+	anaconda.SetConsumerSecret(config.ConsumerSecret)
+	api := anaconda.NewTwitterApi(config.AccessToken, config.AccessTokenSecret)
+	v := url.Values{}
+	v.Set("track", config.Username)
+	stream := api.PublicStreamFilter(v)
+	log.Println("ok", config.Username)
+	for {
+		select {
+		case stream := <-stream.C:
+			switch tweet := stream.(type) {
+			case anaconda.Tweet:
+				s := strings.Replace(tweet.Text, config.Username, "", -1)
+				s = re.ReplaceAllString(s, "")
+				log.Println("received", s, "from", tweet.User.ScreenName)
+				result := ""
+				if len(s) != 81 {
+					result = "問題がおかしい気がします。"
+				} else {
+					result = RunSolver(s)
+				}
+				result = "@" + tweet.User.ScreenName + "\n" + result
+				v := url.Values{}
+				v.Set("in_reply_to_status_id", tweet.IdStr)
+				posted, err := api.PostTweet(result, v)
+				if err != nil {
+					log.Println("ERROR ->", err)
+				} else {
+					fmt.Println("tweeted ->", posted.Text)
+				}
+			default:
+			}
+		}
+	}
+
+}
+
+func main() {
+	if len(os.Args) == 3 {
+		switch os.Args[1] {
+		case "-d":
+			RunTwitterBot(os.Args[2])
+		case "-f":
+			fmt.Println(RunSolver(Load(os.Args[2])))
+		case "-q":
+			fmt.Println(RunSolver(os.Args[2]))
+		default:
+			log.Fatal("invalid parameter ", os.Args[1])
+		}
+	}
 }
