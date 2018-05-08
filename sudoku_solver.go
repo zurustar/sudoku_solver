@@ -133,6 +133,10 @@ func (board *Board) Find(pos, value int) int {
 	return -1
 }
 
+//
+// 指定された場所のセルの候補リストから指定された値を削除する
+// 削除できた場合はtrueを、値が存在しなかった場合はfalseを返す
+//
 func (board *Board) Remove(pos, value int) bool {
 	result := false
 	cands := []int{}
@@ -149,6 +153,11 @@ func (board *Board) Remove(pos, value int) bool {
 	return result
 }
 
+//
+// 各セルに着目し、候補数があとひとつに減っていたら、そのセルはその値で
+// 確定ということになるので、横方向、縦方向、同じグループ内の他のセルの
+// 候補からその値を削除する
+//
 func (board *Board) _Update1() bool {
 	updated := false
 	for src_pos := 0; src_pos < 9*9; src_pos++ {
@@ -171,6 +180,10 @@ func (board *Board) _Update1() bool {
 	return updated
 }
 
+//
+// 各セルの各候補に着目し、その値が横方向、縦方向、同じグループ内の他の
+// セルの候補にその値が含まれていなかったら、その値に確定
+//
 func (board *Board) _Update2() bool {
 	updated := false
 	for src_pos := 0; src_pos < 9*9; src_pos++ {
@@ -201,6 +214,7 @@ func (board *Board) _Update2() bool {
 	return updated
 }
 
+// 各セルの候補を絞り込む
 func (board *Board) Update() {
 	updated := true
 	for updated {
@@ -216,18 +230,24 @@ func (board *Board) Update() {
 
 func Solve(board *Board) (BoardState, *Board) {
 	board.Update()
+	// 各セルそれぞれにのこりいくつの候補が残っているかを調査
+	// 残りの個数ごとにそのセルの番号を配列に格納する
 	len_list := [10][]int{{}, {}, {}, {}, {}, {}, {}, {}, {}, {}}
 	for pos := 0; pos < 9*9; pos++ {
 		l := len(board.cells[pos])
 		len_list[l] = append(len_list[l], pos)
 	}
+	// 候補数がゼロのセルが存在したら異常な状態になっている
 	if len(len_list[0]) > 0 {
 		return INVALID, nil
 	}
+	// すべてのセルの候補数が1になっていたら解けている
 	if len(len_list[1]) == 9*9 {
 		return SOLVED, board
 	}
-	//board.ShowDetail()
+	// まだ候補数が１になっていないセルについて、
+	// 適当にいっこの値に絞り込んで、ためしに解いてみる
+	// 再帰呼び出しになるので、結果的にかたっぱしから試すことになる
 	for i := 2; i < 10; i++ {
 		for _, pos := range len_list[i] {
 			if len(board.cells[pos]) > 1 {
@@ -246,6 +266,8 @@ func Solve(board *Board) (BoardState, *Board) {
 	return NOT_SOLVED, board
 }
 
+// 問題文字列から余計な文字をカットしてから
+// 問題情報を保持するBoardインスタンスに突っ込んで解く
 func RunSolver(src string) string {
 	re := regexp.MustCompile(`[^0-9]`)
 	q := re.ReplaceAllString(src, "")
@@ -272,6 +294,7 @@ func RunSolver(src string) string {
 	return ""
 }
 
+// 問題が書いてあるファイルを読み込む
 func Load(filename string) string {
 	log.Println("load", filename)
 	fp, err := os.Open(filename)
@@ -300,9 +323,9 @@ type Config struct {
 	ConsumerSecret      string `json:"consumer_secret"`
 	AccessToken         string `json:"access_token"`
 	AccessTokenSecret   string `json:"access_token_secret"`
-	SudokuSolverCommand string `json:"sudoku_solver_command"`
 }
 
+// TwitterBot用設定ファイルのロード処理
 func LoadBotConfiguration(filename string) *Config {
 	bytes, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -313,12 +336,14 @@ func LoadBotConfiguration(filename string) *Config {
 	if err != nil {
 		log.Fatal(err)
 	}
+	// 設定ファイルのユーザ名のあたまに@がなかったらつける
 	if strings.HasPrefix(config.Username, "@") == false {
 		config.Username = "@" + config.Username
 	}
 	return config
 }
 
+// TwitterBotとして動く
 func RunTwitterBot(config_filename string) {
 	logger, _ := syslog.New(syslog.LOG_NOTICE|syslog.LOG_USER, "twitter_bot")
 	log.SetOutput(logger)
