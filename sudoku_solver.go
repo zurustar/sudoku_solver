@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type BoardState int
@@ -68,22 +69,12 @@ func NewBoard() *Board {
 
 func (board *Board) ToString() string {
 	s := ""
-	for row := 0; row < 9; row++ {
-		if row%3 == 0 {
-			s += "\n"
+	for i := 0; i < 9*9; i++ {
+		if len(board.cells[i]) == 1 {
+			s += strconv.Itoa(board.cells[i][0])
+		} else {
+			s += "0"
 		}
-		for column := 0; column < 9; column++ {
-			i := row*9 + column
-			if len(board.cells[i]) == 1 {
-				s += strconv.Itoa(board.cells[i][0])
-			} else {
-				s += "0"
-			}
-			if column%3 == 2 {
-				s += " "
-			}
-		}
-		s += "\n"
 	}
 	return s
 }
@@ -266,8 +257,27 @@ func Solve(board *Board) (BoardState, *Board) {
 	return NOT_SOLVED, board
 }
 
+func ToString(src string) string {
+	s := ""
+	for row := 0; row < 9; row++ {
+		if row%3 == 0 {
+			s += "\n"
+		}
+		for column := 0; column < 9; column++ {
+			s += string(src[row*9+column])
+			if column%3 == 2 {
+				s += " "
+			}
+		}
+		s += "\n"
+	}
+	return s
+}
+
+//
 // 問題文字列から余計な文字をカットしてから
 // 問題情報を保持するBoardインスタンスに突っ込んで解く
+//
 func RunSolver(src string) string {
 	re := regexp.MustCompile(`[^0-9]`)
 	q := re.ReplaceAllString(src, "")
@@ -280,8 +290,7 @@ func RunSolver(src string) string {
 	for i, c := range q {
 		v, err := strconv.Atoi(string(c))
 		if err != nil {
-			// bug?
-			return ""
+			return "" // bug?
 		}
 		if v != 0 {
 			board.cells[i] = []int{v}
@@ -318,11 +327,11 @@ func Load(filename string) string {
 }
 
 type Config struct {
-	Username            string `json:"username"`
-	ConsumerKey         string `json:"consumer_key"`
-	ConsumerSecret      string `json:"consumer_secret"`
-	AccessToken         string `json:"access_token"`
-	AccessTokenSecret   string `json:"access_token_secret"`
+	Username          string `json:"username"`
+	ConsumerKey       string `json:"consumer_key"`
+	ConsumerSecret    string `json:"consumer_secret"`
+	AccessToken       string `json:"access_token"`
+	AccessTokenSecret string `json:"access_token_secret"`
 }
 
 // TwitterBot用設定ファイルのロード処理
@@ -368,7 +377,11 @@ func RunTwitterBot(config_filename string) {
 				if len(s) != 81 {
 					result = "問題がおかしい気がします。"
 				} else {
+					start := time.Now()
 					result = RunSolver(s)
+					end := time.Now()
+					sec := float64(end.Sub(start).Nanoseconds()) / 1000000000.0
+					result = fmt.Sprintf("頂いた問題\n%sの答えは%sだと思います。%f秒で解けました。", ToString(s), ToString(result), sec)
 				}
 				result = "@" + tweet.User.ScreenName + "\n" + result
 				v := url.Values{}
@@ -379,7 +392,6 @@ func RunTwitterBot(config_filename string) {
 				} else {
 					fmt.Println("tweeted ->", posted.Text)
 				}
-			default:
 			}
 		}
 	}
@@ -392,9 +404,9 @@ func main() {
 		case "-d":
 			RunTwitterBot(os.Args[2])
 		case "-f":
-			fmt.Println(RunSolver(Load(os.Args[2])))
+			fmt.Println(ToString(RunSolver(Load(os.Args[2]))))
 		case "-q":
-			fmt.Println(RunSolver(os.Args[2]))
+			fmt.Println(ToString(RunSolver(os.Args[2])))
 		default:
 			log.Fatal("invalid parameter ", os.Args[1])
 		}
