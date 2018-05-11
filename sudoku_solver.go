@@ -381,7 +381,7 @@ func RunTwitterBot(config_filename string) {
 					result = RunSolver(s)
 					end := time.Now()
 					sec := float64(end.Sub(start).Nanoseconds()) / 1000000000.0
-					result = fmt.Sprintf("頂いた問題\n%sの答えは%sだと思います。%f秒で解けました。", ToString(s), ToString(result), sec)
+					result = fmt.Sprintf("こたえは\n%s\nだと思います。%f秒で解けました。", ToString(result), sec)
 				}
 				result = "@" + tweet.User.ScreenName + "\n" + result
 				v := url.Values{}
