@@ -196,7 +196,6 @@ func (board *Board) _Update2() bool {
 		if len(board.cells[sp]) == 1 {
 			continue
 		}
-		fmt.Println(sp, board.cells[sp])
 		for _, v := range board.cells[sp] {
 			found := false
 			for _, dp := range peers[sp] {
@@ -218,7 +217,6 @@ func (board *Board) _Update2() bool {
 // 各セルの候補を絞り込む
 //
 func (board *Board) Update() UpdateResult {
-	board.ShowDetail()
 	updated := true
 	for updated {
 
@@ -234,6 +232,9 @@ func (board *Board) Update() UpdateResult {
 	return UPDATED
 }
 
+//
+// 解く。ルールどおりに試して答えがでなかったら仮置きして再帰呼び出し
+//
 func Solve(board *Board) (BoardState, *Board) {
 	board.Update()
 	// 各セルそれぞれにのこりいくつの候補が残っているかを調査
@@ -272,6 +273,9 @@ func Solve(board *Board) (BoardState, *Board) {
 	return NOT_SOLVED, board
 }
 
+//
+// 81個の数値からなる文字列を人間が見やすい形に変換
+//
 func ToString(src string) string {
 	s := ""
 	for row := 0; row < 9; row++ {
@@ -300,7 +304,6 @@ func RunSolver(src string) string {
 		log.Println("invalid question")
 		return ""
 	}
-	log.Println("solve", q)
 	board := NewBoard()
 	for i, c := range q {
 		v, err := strconv.Atoi(string(c))
@@ -341,7 +344,7 @@ func Load(filename string) string {
 	return result
 }
 
-type Config struct {
+type TwitterConfig struct {
 	Username          string `json:"username"`
 	ConsumerKey       string `json:"consumer_key"`
 	ConsumerSecret    string `json:"consumer_secret"`
@@ -350,12 +353,12 @@ type Config struct {
 }
 
 // TwitterBot用設定ファイルのロード処理
-func LoadBotConfiguration(filename string) *Config {
+func LoadBotConfiguration(filename string) *TwitterConfig {
 	bytes, err := ioutil.ReadFile(filename)
 	if err != nil {
 		log.Fatal(err)
 	}
-	config := new(Config)
+	config := new(TwitterConfig)
 	err = json.Unmarshal(bytes, &config)
 	if err != nil {
 		log.Fatal(err)
@@ -367,7 +370,9 @@ func LoadBotConfiguration(filename string) *Config {
 	return config
 }
 
+//
 // TwitterBotとして動く
+//
 func RunTwitterBot(config_filename string) {
 	logger, _ := syslog.New(syslog.LOG_NOTICE|syslog.LOG_USER, "twitter_bot")
 	log.SetOutput(logger)
@@ -396,7 +401,8 @@ func RunTwitterBot(config_filename string) {
 					result = RunSolver(s)
 					end := time.Now()
 					sec := float64(end.Sub(start).Nanoseconds()) / 1000000000.0
-					result = fmt.Sprintf("こたえは\n%s\nだと思います。%f秒で解けました。", ToString(result), sec)
+					result = fmt.Sprintf("こたえは\n%s\nだと思います。%f秒で解けました。",
+						ToString(result), sec)
 				}
 				result = "@" + tweet.User.ScreenName + "\n" + result
 				v := url.Values{}
@@ -410,7 +416,6 @@ func RunTwitterBot(config_filename string) {
 			}
 		}
 	}
-
 }
 
 func main() {
