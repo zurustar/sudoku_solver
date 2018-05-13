@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"log/syslog"
+	"math"
 	"net/url"
 	"os"
 	"regexp"
@@ -23,34 +24,44 @@ const (
 	INVALID
 )
 
-var dic = [9 * 9][3]int{
-	{0, 0, 0}, {1, 0, 0}, {2, 0, 0},
-	{3, 0, 1}, {4, 0, 1}, {5, 0, 1},
-	{6, 0, 2}, {7, 0, 2}, {8, 0, 2},
-	{0, 1, 0}, {1, 1, 0}, {2, 1, 0},
-	{3, 1, 1}, {4, 1, 1}, {5, 1, 1},
-	{6, 1, 2}, {7, 1, 2}, {8, 1, 2},
-	{0, 2, 0}, {1, 2, 0}, {2, 2, 0},
-	{3, 2, 1}, {4, 2, 1}, {5, 2, 1},
-	{6, 2, 2}, {7, 2, 2}, {8, 2, 2},
-	{0, 3, 3}, {1, 3, 3}, {2, 3, 3},
-	{3, 3, 4}, {4, 3, 4}, {5, 3, 4},
-	{6, 3, 5}, {7, 3, 5}, {8, 3, 5},
-	{0, 4, 3}, {1, 4, 3}, {2, 4, 3},
-	{3, 4, 4}, {4, 4, 4}, {5, 4, 4},
-	{6, 4, 5}, {7, 4, 5}, {8, 4, 5},
-	{0, 5, 3}, {1, 5, 3}, {2, 5, 3},
-	{3, 5, 4}, {4, 5, 4}, {5, 5, 4},
-	{6, 5, 5}, {7, 5, 5}, {8, 5, 5},
-	{0, 6, 6}, {1, 6, 6}, {2, 6, 6},
-	{3, 6, 7}, {4, 6, 7}, {5, 6, 7},
-	{6, 6, 8}, {7, 6, 8}, {8, 6, 8},
-	{0, 7, 6}, {1, 7, 6}, {2, 7, 6},
-	{3, 7, 7}, {4, 7, 7}, {5, 7, 7},
-	{6, 7, 8}, {7, 7, 8}, {8, 7, 8},
-	{0, 8, 6}, {1, 8, 6}, {2, 8, 6},
-	{3, 8, 7}, {4, 8, 7}, {5, 8, 7},
-	{6, 8, 8}, {7, 8, 8}, {8, 8, 8},
+type UpdateResult int
+
+const (
+	UPDATED UpdateResult = iota
+	NOT_UPDATED
+	ERROR
+)
+
+var peers = [][]int{}
+
+func initPeer() {
+	for pos := 0; pos < 81; pos++ {
+		peers = append(peers, []int{})
+	}
+	for sy := 0; sy < 9; sy++ {
+		for sx := 0; sx < 9; sx++ {
+			sp := sy*9 + sx
+			for dy := 0; dy < 9; dy++ {
+				for dx := 0; dx < 9; dx++ {
+					dp := dy*9 + dx
+					if sp == dp {
+						continue
+					}
+					if sx == dx {
+						peers[sp] = append(peers[sp], dp)
+					} else if sy == dy {
+						peers[sp] = append(peers[sp], dp)
+					} else {
+						sb := math.Trunc(float64(sy)/3.0)*3 + math.Trunc(float64(sx)/3.0)
+						db := math.Trunc(float64(dy)/3.0)*3 + math.Trunc(float64(dx)/3.0)
+						if sb == db {
+							peers[sp] = append(peers[sp], dp)
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 type Board struct {
@@ -126,22 +137,25 @@ func (board *Board) Find(pos, value int) int {
 
 //
 // 指定された場所のセルの候補リストから指定された値を削除する
-// 削除できた場合はtrueを、値が存在しなかった場合はfalseを返す
 //
-func (board *Board) Remove(pos, value int) bool {
-	result := false
+func (board *Board) Remove(pos, value int) UpdateResult {
+	found := false
 	cands := []int{}
 	for _, v := range board.cells[pos] {
 		if v == value {
-			result = true
+			found = true
 		} else {
 			cands = append(cands, v)
 		}
 	}
-	if result {
+	if found {
+		if len(cands) == 0 {
+			return ERROR // 消したらデータがなくなってしまった
+		}
 		board.cells[pos] = cands
+		return UPDATED // 消した
 	}
-	return result
+	return NOT_UPDATED // 該当のデータがなかったので消さなかった
 }
 
 //
@@ -149,26 +163,27 @@ func (board *Board) Remove(pos, value int) bool {
 // 確定ということになるので、横方向、縦方向、同じグループ内の他のセルの
 // 候補からその値を削除する
 //
-func (board *Board) _Update1() bool {
+func (board *Board) _Update1() UpdateResult {
 	updated := false
-	for src_pos := 0; src_pos < 9*9; src_pos++ {
-		if len(board.cells[src_pos]) != 1 {
+	for sp := 0; sp < 81; sp++ {
+		if len(board.cells[sp]) != 1 {
 			continue
 		}
-		for dst_pos := 0; dst_pos < 9*9; dst_pos++ {
-			if src_pos == dst_pos {
-				continue
-			}
-			for target := 0; target < 3; target++ {
-				if dic[src_pos][target] == dic[dst_pos][target] {
-					if board.Remove(dst_pos, board.cells[src_pos][0]) {
-						updated = true
-					}
-				}
+		for _, dp := range peers[sp] {
+			switch board.Remove(dp, board.cells[sp][0]) {
+			case UPDATED:
+				updated = true
+			case NOT_UPDATED:
+				// do nothing
+			case ERROR:
+				return ERROR
 			}
 		}
 	}
-	return updated
+	if updated {
+		return UPDATED
+	}
+	return NOT_UPDATED
 }
 
 //
@@ -177,46 +192,46 @@ func (board *Board) _Update1() bool {
 //
 func (board *Board) _Update2() bool {
 	updated := false
-	for src_pos := 0; src_pos < 9*9; src_pos++ {
-		if len(board.cells[src_pos]) == 1 {
+	for sp := 0; sp < 81; sp++ {
+		if len(board.cells[sp]) == 1 {
 			continue
 		}
-		for target := 0; target < 3; target++ {
-			for _, cand := range board.cells[src_pos] {
-				found := false
-				for dst_pos := 0; dst_pos < 9*9; dst_pos++ {
-					if src_pos == dst_pos {
-						continue
-					}
-					if dic[src_pos][target] != dic[dst_pos][target] {
-						continue
-					}
-					if board.Find(dst_pos, cand) >= 0 {
-						found = true
-					}
+		fmt.Println(sp, board.cells[sp])
+		for _, v := range board.cells[sp] {
+			found := false
+			for _, dp := range peers[sp] {
+				if board.Find(dp, v) >= 0 {
+					found = true
+					break
 				}
-				if found == false {
-					board.cells[src_pos] = []int{cand}
-					updated = true
-				}
+			}
+			if found == false {
+				board.cells[sp] = []int{v}
+				updated = true
 			}
 		}
 	}
 	return updated
 }
 
+//
 // 各セルの候補を絞り込む
-func (board *Board) Update() {
+//
+func (board *Board) Update() UpdateResult {
+	board.ShowDetail()
 	updated := true
 	for updated {
-		updated = board._Update1()
-		if !updated {
+
+		switch board._Update1() {
+		case UPDATED:
+			updated = true
+		case NOT_UPDATED:
 			updated = board._Update2()
-		}
-		if !updated {
-			break
+		case ERROR:
+			return ERROR
 		}
 	}
+	return UPDATED
 }
 
 func Solve(board *Board) (BoardState, *Board) {
@@ -400,6 +415,7 @@ func RunTwitterBot(config_filename string) {
 
 func main() {
 	if len(os.Args) == 3 {
+		initPeer()
 		switch os.Args[1] {
 		case "-d":
 			RunTwitterBot(os.Args[2])
