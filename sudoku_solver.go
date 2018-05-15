@@ -92,31 +92,65 @@ func (board *Board) ToString() string {
 
 func (board *Board) ShowDetail() {
 	s := ""
-	for row := 0; row < 9; row++ {
-		if row%3 == 0 {
-			s += "+---+---+---+\n"
-		}
-		for column := 0; column < 9; column++ {
-			if column%3 == 0 {
+	for y := 0; y < 9; y++ {
+		for x := 0; x < 9; x++ {
+			p := y*9 + x
+			s += " "
+			for v := 1; v < 4; v++ {
+				if board.Find(p, v) >= 0 {
+					s += strconv.Itoa(v)
+				} else {
+					s += " "
+				}
+			}
+			if x == 2 || x == 5 {
 				s += "|"
-			}
-			i := row*9 + column
-			if len(board.cells[i]) == 1 {
-				s += strconv.Itoa(board.cells[i][0])
-			} else {
-				s += "0"
+			} else if x != 8 {
+				s += ":"
 			}
 		}
-		s += "|"
-		for column := 0; column < 9; column++ {
-			if column%3 == 0 {
-				s += " "
+		s += "\n"
+		for x := 0; x < 9; x++ {
+			p := y*9 + x
+			s += " "
+			for v := 4; v < 7; v++ {
+				if board.Find(p, v) >= 0 {
+					s += strconv.Itoa(v)
+				} else {
+					s += " "
+				}
 			}
-			s += strconv.Itoa(len(board.cells[row*9+column]))
+			if x == 2 || x == 5 {
+				s += "|"
+			} else if x != 8 {
+				s += ":"
+			}
+		}
+		s += "\n"
+		for x := 0; x < 9; x++ {
+			p := y*9 + x
+			s += " "
+			for v := 7; v < 10; v++ {
+				if board.Find(p, v) >= 0 {
+					s += strconv.Itoa(v)
+				} else {
+					s += " "
+				}
+			}
+			if x == 2 || x == 5 {
+				s += "|"
+			} else if x != 8 {
+				s += ":"
+			}
+		}
+		s += "\n"
+		if y == 2 || y == 5 {
+			s += " ==========================================="
+		} else if y != 8 {
+			s += " -------------+--------------+--------------"
 		}
 		s += "\n"
 	}
-	s += "+---+---+---+"
 	fmt.Println(s)
 }
 
@@ -219,7 +253,6 @@ func (board *Board) _Update2() bool {
 func (board *Board) Update() UpdateResult {
 	updated := true
 	for updated {
-
 		switch board._Update1() {
 		case UPDATED:
 			updated = true
@@ -236,35 +269,36 @@ func (board *Board) Update() UpdateResult {
 // 解く。ルールどおりに試して答えがでなかったら仮置きして再帰呼び出し
 //
 func Solve(board *Board) (BoardState, *Board) {
-	board.Update()
-	// 各セルそれぞれにのこりいくつの候補が残っているかを調査
-	// 残りの個数ごとにそのセルの番号を配列に格納する
-	len_list := [10][]int{{}, {}, {}, {}, {}, {}, {}, {}, {}, {}}
-	for pos := 0; pos < 9*9; pos++ {
-		l := len(board.cells[pos])
-		len_list[l] = append(len_list[l], pos)
-	}
-	// 候補数がゼロのセルが存在したら異常な状態になっている
-	if len(len_list[0]) > 0 {
-		return INVALID, nil
-	}
-	// すべてのセルの候補数が1になっていたら解けている
-	if len(len_list[1]) == 9*9 {
-		return SOLVED, board
-	}
-	// まだ候補数が１になっていないセルについて、
-	// 適当にいっこの値に絞り込んで、ためしに解いてみる
-	// 再帰呼び出しになるので、結果的にかたっぱしから試すことになる
-	for i := 2; i < 10; i++ {
-		for _, pos := range len_list[i] {
-			if len(board.cells[pos]) > 1 {
-				for _, cand := range board.cells[pos] {
-					new_board := NewBoard()
-					new_board.CopyFrom(board)
-					new_board.cells[pos] = []int{cand}
-					result, new_board := Solve(new_board)
-					if result == SOLVED {
-						return SOLVED, new_board
+	if board.Update() == UPDATED {
+		// 各セルそれぞれにのこりいくつの候補が残っているかを調査
+		// 残りの個数ごとにそのセルの番号を配列に格納する
+		len_list := [10][]int{{}, {}, {}, {}, {}, {}, {}, {}, {}, {}}
+		for pos := 0; pos < 9*9; pos++ {
+			l := len(board.cells[pos])
+			len_list[l] = append(len_list[l], pos)
+		}
+		// 候補数がゼロのセルが存在したら異常な状態になっている
+		if len(len_list[0]) > 0 {
+			return INVALID, nil
+		}
+		// すべてのセルの候補数が1になっていたら解けている
+		if len(len_list[1]) == 9*9 {
+			return SOLVED, board
+		}
+		// まだ候補数が１になっていないセルについて、
+		// 適当にいっこの値に絞り込んで、ためしに解いてみる
+		// 再帰呼び出しになるので、結果的にかたっぱしから試すことになる
+		for i := 2; i < 10; i++ {
+			for _, pos := range len_list[i] {
+				if len(board.cells[pos]) > 1 {
+					for _, cand := range board.cells[pos] {
+						new_board := NewBoard()
+						new_board.CopyFrom(board)
+						new_board.cells[pos] = []int{cand}
+						result, new_board := Solve(new_board)
+						if result == SOLVED {
+							return SOLVED, new_board
+						}
 					}
 				}
 			}
