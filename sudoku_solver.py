@@ -3,10 +3,10 @@
 import sys
 import copy
 
-#peers = []
-
-
-#------------------------------------------------------------------------------
+#--------------------------------------------------------------------
+#
+# 同じ値があってはいけない場所一覧を作成する。
+#
 def init_peers():
   peers = []
   for sy in range(9):
@@ -23,28 +23,41 @@ def init_peers():
               peers[s].append(d)
   return peers
 
-#------------------------------------------------------------------------------
+#--------------------------------------------------------------------
+#
+# 同じ値があってはいけない場所に同じ値があったら例外をなげる
+#
 def check(board, peers):
   for i in range(81):
-    if len(board[i]) == 1:
-      for peer in peers[i]:
-        if len(board[peer]) == 1:
-          if board[i][0] == board[peer][0]:
-            raise ValueError
-#------------------------------------------------------------------------------
+    if len(board[i]) == 1: # 確定している場所をみつけたら、
+      for peer in peers[i]: # 同じあったら行けない場所をもってきて、
+        if len(board[peer]) == 1: # そこも値が確定しているかを調べ、
+          if board[i][0] == board[peer][0]: # 確定している値が同じなら
+            raise ValueError # おかしいので例外。
+
+#--------------------------------------------------------------------
+#
+# 値が確定している場所があったら、その場所からみて同じ値があっては
+# いけない場所からその確定している値を削除する
+#
 def _update1(board, peers):
-  updated = False
+  updated = False # この関数内での処理で値が更新されたか？
   for target_pos in range(81):
-    if len(board[target_pos]) == 1:
-      target_value = board[target_pos][0]
-      for peer_pos in peers[target_pos]:
-        if target_value in board[peer_pos]:
-          board[peer_pos].remove(target_value)
-          if len(board[peer_pos]) == 0:
-            raise ValueError
+    if len(board[target_pos]) == 1: # 候補がひとつ＝確定済み
+      target_value = board[target_pos][0] # 確定した値を抜き出して、
+      for peer_pos in peers[target_pos]:  # 同じ値があってはいけない所
+        if target_value in board[peer_pos]: # その値があったら、、
+          board[peer_pos].remove(target_value) # 消す。
+          if len(board[peer_pos]) == 0:     # 値がゼロ個になったら
+            raise ValueError  # 仮おきした値が間違っているので例外
           updated = True
   return board, updated
-#------------------------------------------------------------------------------
+
+#--------------------------------------------------------------------
+#
+# ある場所の候補について、その場所からみて同じ値があってはいけない
+# 場所の候補に含まれていなかったら、その候補の値に確定する
+#
 def _update2(board, peers):
   updated = False
   for target_pos in range(81):
@@ -60,7 +73,11 @@ def _update2(board, peers):
           updated = True
           break
   return board, updated
-#------------------------------------------------------------------------------
+
+#--------------------------------------------------------------------
+#
+# _update1と_update2を更新できなくなるまで繰り返し実行する
+#
 def update(board, peers):
   updated = True 
   while updated:
@@ -69,22 +86,30 @@ def update(board, peers):
       board, updated = _update2(board, peers)
   return board
 
-#------------------------------------------------------------------------------
+#-------------------------------------------------------------------
+#
+# 現在の状態に矛盾が生じていないかを確認し、
+# 更新してみて、解けているかを確認し、解けていなかったら
+# 仮おきして再帰的にこの関数を呼び出す。
+#
 def solve(board, peers, depth):
-  #print("depth =", depth)
-  result = True
+  # 矛盾が生じていないかを確認
   check(board, peers)
+  # ルールに則り解いてみる
   board = update(board, peers)
-  #show(board, depth)
+  show_detail(board, depth)
+  # 残りの候補数を調べる
   counter = [[],[],[],[],[],[],[],[],[],[]]
   for i in range(81):
     l = len(board[i])
     if l == 0:
       raise ValueError
     counter[l].append(i)
+  # すべて残りの候補がひとつになっていたら解けたという意味。
   if len(counter[1]) == 81:
     show(board)
     sys.exit()
+  # 残り候補数が少ないものから順に借り置きして試しに解いてみる
   for i in [2,3,4,5,6,7,8,9]:
     for p in counter[i]:
       for c in board[p]:
@@ -94,12 +119,12 @@ def solve(board, peers, depth):
           solve(nb, peers, depth+1)
         except ValueError:
           board[p].remove(c)
-          pass
         
-#------------------------------------------------------------------------------
-def show_detail(board):
+#--------------------------------------------------------------------
+def show_detail(board, depth):
   s = ""
   for y in range(9):
+    s += " " * depth
     s += "|"
     for x in range(9):
       for v in [1,2,3,4,5,6,7,8,9]:
@@ -110,9 +135,9 @@ def show_detail(board):
       s += "|"
     s += "\n"
     if y in [2,5]:
-      s += "-" * 91 + "\n"
+      s += " " * depth + "-" * 91 + "\n"
   print(s)
-#------------------------------------------------------------------------------
+#--------------------------------------------------------------------
 def show(board, depth = 0):
   s = ""
   for y in range(9):
@@ -128,7 +153,7 @@ def show(board, depth = 0):
     s += "\n"
   print(s)
 
-#------------------------------------------------------------------------------
+#--------------------------------------------------------------------
 def main(path):
   board = []
   with open(path) as fp:
@@ -141,7 +166,7 @@ def main(path):
   if len(board) == 81:
     solve(board, init_peers(), 0)
         
-#------------------------------------------------------------------------------
+#--------------------------------------------------------------------
 if __name__ == '__main__':
   main(sys.argv[1])
 
