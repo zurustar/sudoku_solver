@@ -29,11 +29,16 @@ def init_peers():
 #
 def check(board, peers):
   for i in range(81):
-    if len(board[i]) == 1: # 確定している場所をみつけたら、
-      for peer in peers[i]: # 同じあったら行けない場所をもってきて、
-        if len(board[peer]) == 1: # そこも値が確定しているかを調べ、
-          if board[i][0] == board[peer][0]: # 確定している値が同じなら
-            raise ValueError # おかしいので例外。
+    # 確定している場所をみつけたら、
+    if len(board[i]) == 1:
+      # 同じあったらいけない場所をもってきて、
+      for peer in peers[i]:
+        # そこも値が確定しているかを調べ、
+        if len(board[peer]) == 1:
+          # 確定している値が同じなら
+          if board[i][0] == board[peer][0]:
+            # おかしいので例外。
+            raise ValueError
 
 #--------------------------------------------------------------------
 #
@@ -43,13 +48,20 @@ def check(board, peers):
 def _update1(board, peers):
   updated = False # この関数内での処理で値が更新されたか？
   for target_pos in range(81):
-    if len(board[target_pos]) == 1: # 候補がひとつ＝確定済み
-      target_value = board[target_pos][0] # 確定した値を抜き出して、
-      for peer_pos in peers[target_pos]:  # 同じ値があってはいけない所
-        if target_value in board[peer_pos]: # その値があったら、、
-          board[peer_pos].remove(target_value) # 消す。
-          if len(board[peer_pos]) == 0:     # 値がゼロ個になったら
-            raise ValueError  # 仮おきした値が間違っているので例外
+    # 候補がひとつ＝確定済み だったら
+    if len(board[target_pos]) == 1:
+      # 確定した値を抜き出して、
+      target_value = board[target_pos][0]
+      # 同じ値があってはいけない所
+      for peer_pos in peers[target_pos]:
+        # その値があったら、、
+        if target_value in board[peer_pos]:
+          # 消す。
+          board[peer_pos].remove(target_value)
+          # 値がゼロ個になったら
+          if len(board[peer_pos]) == 0:
+            # 仮おきした値が間違っているので例外
+            raise ValueError
           updated = True
   return board, updated
 
