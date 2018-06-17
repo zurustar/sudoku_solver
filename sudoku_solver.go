@@ -1,19 +1,12 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"github.com/ChimeraCoder/anaconda"
-	"io/ioutil"
 	"log"
-	"log/syslog"
 	"math"
-	"net/url"
 	"os"
 	"regexp"
 	"strconv"
-	"strings"
-	"time"
 )
 
 var peers = [][]int{}
@@ -34,8 +27,7 @@ func InitPeer() {
 					dp := dy*9 + dx
 					if sp == dp {
 						continue
-					}
-					if sx == dx {
+					} else if sx == dx {
 						peers[sp] = append(peers[sp], dp)
 					} else if sy == dy {
 						peers[sp] = append(peers[sp], dp)
@@ -119,6 +111,11 @@ func (board *Board) Find(pos, value int) int {
 func (board *Board) Remove(pos, value int) int {
 	found := false
 	cands := []int{}
+	if len(board[pos]) == 1 {
+		if board[pos][0] == value {
+			return -1
+		}
+	}
 	for _, v := range board[pos] {
 		if v == value {
 			found = true
@@ -127,13 +124,25 @@ func (board *Board) Remove(pos, value int) int {
 		}
 	}
 	if found {
-		if len(cands) == 0 {
-			return -1
-		}
 		board[pos] = cands
 		return 1
 	}
 	return 0
+}
+
+func Check(board *Board) int {
+	for i := 0; i < 81; i++ {
+		if len(board[i]) == 1 {
+			for _, j := range peers[i] {
+				if len(board[j]) == 1 {
+					if board[i][0] == board[j][0] {
+						return -1
+					}
+				}
+			}
+		}
+	}
+	return 1
 }
 
 //
@@ -157,7 +166,8 @@ func (board *Board) Update() int {
 				}
 			} else {
 				// 候補がたくさん残っていたら、それぞれの候補について
-				// お友達が持っていなかったらその候補に確定
+				// 持っているお友達がいるかを調べて、いなかったら
+				// その候補に確定
 				for _, v := range board[sp] {
 					found := false
 					for _, dp := range peers[sp] {
@@ -183,7 +193,12 @@ func (board *Board) Update() int {
 //
 // 解く。ルールどおりに試して答えがでなかったら仮置きして再帰呼び出し
 //
-func Solve(board *Board) (int, *Board) {
+func Solve(board *Board, depth int) (int, *Board) {
+	fmt.Println("depth=", depth)
+	//board.ShowDetail()
+	if Check(board) == -1 {
+		return -1, nil
+	}
 	switch board.Update() {
 	case 0:
 		return 0, board
@@ -220,9 +235,11 @@ func Solve(board *Board) (int, *Board) {
 						}
 					}
 					new_board[pos] = []int{cand}
-					result, new_board := Solve(new_board)
+					result, new_board := Solve(new_board, depth+1)
 					if result == 1 {
 						return 1, new_board
+					} else if result == -1 {
+						board.Remove(pos, cand)
 					}
 				}
 			}
@@ -272,7 +289,7 @@ func RunSolver(src string) string {
 			board[i] = []int{v}
 		}
 	}
-	result, board := Solve(board)
+	result, board := Solve(board, 0)
 	if result == 1 {
 		return board.ToString()
 	}
@@ -302,92 +319,17 @@ func Load(filename string) string {
 	return result
 }
 
-type TwitterConfig struct {
-	Username          string `json:"username"`
-	ConsumerKey       string `json:"consumer_key"`
-	ConsumerSecret    string `json:"consumer_secret"`
-	AccessToken       string `json:"access_token"`
-	AccessTokenSecret string `json:"access_token_secret"`
-}
-
-// TwitterBot用設定ファイルのロード処理
-func LoadBotConfiguration(filename string) *TwitterConfig {
-	bytes, err := ioutil.ReadFile(filename)
-	if err != nil {
-		log.Fatal(err)
-	}
-	config := new(TwitterConfig)
-	err = json.Unmarshal(bytes, &config)
-	if err != nil {
-		log.Fatal(err)
-	}
-	// 設定ファイルのユーザ名のあたまに@がなかったらつける
-	if strings.HasPrefix(config.Username, "@") == false {
-		config.Username = "@" + config.Username
-	}
-	return config
-}
-
-//
-// TwitterBotとして動く
-//
-func RunTwitterBot(config_filename string) {
-	logger, _ := syslog.New(syslog.LOG_NOTICE|syslog.LOG_USER, "twitter_bot")
-	log.SetOutput(logger)
-	config := LoadBotConfiguration(config_filename)
-	re := regexp.MustCompile(`[^0-9]`)
-	anaconda.SetConsumerKey(config.ConsumerKey)
-	anaconda.SetConsumerSecret(config.ConsumerSecret)
-	api := anaconda.NewTwitterApi(config.AccessToken, config.AccessTokenSecret)
-	v := url.Values{}
-	v.Set("track", config.Username)
-	stream := api.PublicStreamFilter(v)
-	log.Println("ok", config.Username)
-	for {
-		select {
-		case stream := <-stream.C:
-			switch tweet := stream.(type) {
-			case anaconda.Tweet:
-				s := strings.Replace(tweet.Text, config.Username, "", -1)
-				s = re.ReplaceAllString(s, "")
-				log.Println("received", s, "from", tweet.User.ScreenName)
-				result := ""
-				if len(s) != 81 {
-					result = "問題がおかしい気がします。"
-				} else {
-					start := time.Now()
-					result = RunSolver(s)
-					end := time.Now()
-					sec := float64(end.Sub(start).Nanoseconds()) / 1000000000.0
-					result = fmt.Sprintf("こたえは\n%s\nだと思います。%f秒で解けました。",
-						ToString(result), sec)
-				}
-				result = "@" + tweet.User.ScreenName + "\n" + result
-				v := url.Values{}
-				v.Set("in_reply_to_status_id", tweet.IdStr)
-				posted, err := api.PostTweet(result, v)
-				if err != nil {
-					log.Println("ERROR ->", err)
-				} else {
-					fmt.Println("tweeted ->", posted.Text)
-				}
-			}
-		}
-	}
-}
-
 func main() {
-	if len(os.Args) == 3 {
+	if len(os.Args) == 2 {
 		InitPeer()
-		switch os.Args[1] {
-		case "-d":
-			RunTwitterBot(os.Args[2])
-		case "-f":
-			fmt.Println(ToString(RunSolver(Load(os.Args[2]))))
-		case "-q":
-			fmt.Println(ToString(RunSolver(os.Args[2])))
-		default:
-			log.Fatal("invalid parameter ", os.Args[1])
+		s := ""
+		_, err := os.Stat(os.Args[1])
+		if err == nil {
+			s = Load(os.Args[1])
+		} else {
+			s = os.Args[1]
 		}
+		fmt.Println(s)
+		fmt.Println(ToString(RunSolver(s)))
 	}
 }
