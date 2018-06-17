@@ -2,6 +2,7 @@
 
 import sys
 import copy
+from datetime import datetime
 
 #--------------------------------------------------------------------
 #
@@ -106,21 +107,23 @@ def update(board, peers):
 #
 def solve(board, peers, depth):
   # 矛盾が生じていないかを確認
-  check(board, peers)
+  #check(board, peers)
   # ルールに則り解いてみる
   board = update(board, peers)
-  show_detail(board, depth)
+  #show_detail(board, depth)
   # 残りの候補数を調べる
   counter = [[],[],[],[],[],[],[],[],[],[]]
   for i in range(81):
     l = len(board[i])
     if l == 0:
-      raise ValueError
+      raise ValueError # 候補がなくなっている。エラー
     counter[l].append(i)
   # すべて残りの候補がひとつになっていたら解けたという意味。
   if len(counter[1]) == 81:
     show(board)
+    print(datetime.now() - start_time)
     sys.exit()
+  show(board, depth)
   # 残り候補数が少ないものから順に借り置きして試しに解いてみる
   for i in [2,3,4,5,6,7,8,9]:
     for p in counter[i]:
@@ -133,6 +136,9 @@ def solve(board, peers, depth):
           board[p].remove(c)
         
 #--------------------------------------------------------------------
+#
+# 候補を表示
+#
 def show_detail(board, depth):
   s = ""
   for y in range(9):
@@ -149,11 +155,15 @@ def show_detail(board, depth):
     if y in [2,5]:
       s += " " * depth + "-" * 91 + "\n"
   print(s)
+
 #--------------------------------------------------------------------
-def show(board, depth = 0):
+#
+# 表示
+#
+def show(board, depth=0):
   s = ""
   for y in range(9):
-    s += " " * depth
+    s += "  " * depth
     for x in range(9):
       pos = y * 9 + x
       if len(board[pos]) == 0:
@@ -161,11 +171,14 @@ def show(board, depth = 0):
       elif len(board[pos]) == 1:
         s += str(board[pos][0])
       else:
-        s += "0"
+        s += "_"
     s += "\n"
   print(s)
 
 #--------------------------------------------------------------------
+#
+# ファイルから問題を読み込んで解く。
+#
 def main(path):
   board = []
   with open(path) as fp:
@@ -176,7 +189,11 @@ def main(path):
       elif c in "123456789":
         board.append([int(c)])
   if len(board) == 81:
-    solve(board, init_peers(), 0)
+    show(board)
+    peers = init_peers()
+    global start_time
+    start_time = datetime.now()
+    solve(board, peers, 0)
         
 #--------------------------------------------------------------------
 if __name__ == '__main__':
