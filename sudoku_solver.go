@@ -330,6 +330,9 @@ func main() {
 			s = os.Args[1]
 		}
 		fmt.Println(s)
-		fmt.Println(ToString(RunSolver(s)))
+		result := RunSolver(s)
+		if len(result) == 81 {
+			fmt.Println(ToString(result))
+		}
 	}
 }
