@@ -1,49 +1,60 @@
-﻿package main
+package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"strconv"
 )
 
+var pos2grp []int = []int{
+	0, 0, 0, 1, 1, 1, 2, 2, 2,
+	0, 0, 0, 1, 1, 1, 2, 2, 2,
+	0, 0, 0, 1, 1, 1, 2, 2, 2,
+	3, 3, 3, 4, 4, 4, 5, 5, 5,
+	3, 3, 3, 4, 4, 4, 5, 5, 5,
+	3, 3, 3, 4, 4, 4, 5, 5, 5,
+	6, 6, 6, 7, 7, 7, 8, 8, 8,
+	6, 6, 6, 7, 7, 7, 8, 8, 8,
+	6, 6, 6, 7, 7, 7, 8, 8, 8}
+
+var grp2pos [][]int = [][]int{
+	{0, 1, 2, 9, 10, 11, 18, 19, 20},
+	{3, 4, 5, 12, 13, 14, 21, 22, 23},
+	{6, 7, 8, 15, 16, 17, 24, 25, 26},
+	{27, 28, 29, 36, 37, 38, 45, 46, 47},
+	{30, 31, 32, 39, 40, 41, 48, 49, 50},
+	{33, 34, 35, 42, 43, 44, 51, 52, 53},
+	{54, 55, 56, 63, 64, 65, 72, 73, 74},
+	{57, 58, 59, 66, 67, 68, 75, 76, 77},
+	{60, 61, 68, 69, 70, 71, 78, 79, 80}}
+
+func IsPeer(a, b int) bool {
+	if a == b {
+		return false
+	}
+	ax, ay, ag := GetPosInfo(a)
+	bx, by, bg := GetPosInfo(b)
+	if ax == bx || ay == by || ag == bg {
+		return true
+	}
+	return false
+}
 
 func GetPosInfo(pos int) (int, int, int) {
 	sx := pos % 9
 	sy := (pos - sx) / 9
-	gx := 2
-	if 0 <= sx && sx < 3 {
-		gx = 0
-	} else if 3 <= sx && sx < 6 {
-		gx = 1
-	}
-	gy := 2
-	if 0 <= sy && sy < 3 {
-		gy = 0
-	} else if 3 <= sy && sy < 6 {
-		gy = 1
-	}
-	sg := gy * 3 + gx
-	return sx, sy, sg
+	return sx, sy, pos2grp[pos]
 }
 
 type Board struct {
-	Cells []*Cell
+	Cells [][]int
 }
 
-func NewBoard() *Board {
+func NewBoard(filename string) *Board {
 	p := new(Board)
-	p.Cells = []*Cell{}
-	for pos := 0; pos < 9*9; pos++ {
-		p.Cells = append(p.Cells, NewCell())
-	}
-	for pos := 0; pos < 9*9; pos++ {
-		p.Cells[pos].Init(pos)
-	}
-	return p
-}
-
-func (p *Board) Load(filename string) {
+	p.Cells = [][]int{}
 	fp, err := os.Open(filename)
 	if err != nil {
 		log.Fatal(err)
@@ -53,49 +64,83 @@ func (p *Board) Load(filename string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	n := 0
-	for i := 0; i < len(b); i++ {
-		v, err := strconv.Atoi(string(b[i]))
+	for _, c := range b {
+		v, err := strconv.Atoi(string(c))
 		if err == nil {
-			p.Cells[n].Set(v)
-			n += 1
-			if n >= 81 {
-				break
+			if v == 0 {
+				p.Cells = append(p.Cells, []int{1, 2, 3, 4, 5, 6, 7, 8, 9})
+			} else {
+				p.Cells = append(p.Cells, []int{v})
 			}
 		}
 	}
-	if n != 81 {
-		log.Fatal("invalid format")
+	if len(p.Cells) != 9*9 {
+		log.Fatal("failed to load", filename, "(invalid format)")
 	}
-	p.Update()
-	log.Println("\n" + p.ToS())
+	return p
 }
 
-func (p *Board) Update() {
+func (p *Board) Solved() uint64 {
+	var result uint64
+	result = 1
+	for _, cands := range p.Cells {
+		result *= uint64(len(cands))
+	}
+	return result
+}
+
+func (p *Board) Duplicate() *Board {
+	b := new(Board)
+	for _, cands := range p.Cells {
+		b.Cells = append(b.Cells, cands)
+	}
+	return b
+}
+
+func (p *Board) HasCandOf(pos, cand int) bool {
+	for _, c := range p.Cells[pos] {
+		if c == cand {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *Board) Remove(pos, cand int) bool {
+	newcands := []int{}
+	found := false
+	for _, c := range p.Cells[pos] {
+		if c == cand {
+			found = true
+		} else {
+			newcands = append(newcands, c)
+		}
+	}
+	p.Cells[pos] = newcands
+	return found
+}
+
+func (p *Board) Update() bool {
 	updated := true
 	for updated {
 		updated = false
-		if p.UpdateSub1() {
+		if p.Update1() {
 			updated = true
 		}
-		if p.UpdateSub2() {
+		if p.Update2() {
 			updated = true
 		}
 	}
+	return updated
 }
 
-func (p *Board) UpdateSub1() bool {
+func (p *Board) Update1() bool {
 	updated := false
 	for pos := 0; pos < 9*9; pos++ {
-		if len(p.Cells[pos].Cands) == 1 {
-			sx, sy, sg := GetPosInfo(pos)
-			for peer := 0; peer < 9*9; peer ++ {
-				if pos == peer {
-					continue
-				}
-				px, py, pg := GetPosInfo(peer)
-				if sx == px || sy == py || sg == pg {
-					if p.Cells[peer].Remove(p.Cells[pos].Cands[0]) {
+		if len(p.Cells[pos]) == 1 {
+			for peer := 0; peer < 9*9; peer++ {
+				if IsPeer(pos, peer) {
+					if p.Remove(peer, p.Cells[pos][0]) {
 						updated = true
 					}
 				}
@@ -105,24 +150,30 @@ func (p *Board) UpdateSub1() bool {
 	return updated
 }
 
-func (p *Board) UpdateSub2() bool {
+func (p *Board) Update2() bool {
 	updated := false
-	for y := 0; y < 9; y++ {
-		for x := 0; x < 9; x++ {
-			pos := y * 9 + x
-			if len(p.Cells[pos].Cands) == 1 {
-				continue
+	for pos := 0; pos < 9*9; pos++ {
+		if len(p.Cells[pos]) > 1 {
+			for _, v := range p.Cells[pos] {
+				found := false
+				for peer := 0; peer < 9*9; peer++ {
+					if IsPeer(pos, peer) {
+						if p.HasCandOf(peer, v) {
+							found = true
+							break
+						}
+					}
+				}
+				if !found {
+					p.Cells[pos] = []int{v}
+					updated = true
+					break
+				}
 			}
-/*
-			for _, cand := range p.Cells[pos].Cands {
-			}
-*/
 		}
 	}
 	return updated
 }
-
-
 
 func (p *Board) ToS() string {
 	s := ""
@@ -133,10 +184,10 @@ func (p *Board) ToS() string {
 			s += "|"
 			for x := 0; x < 9; x++ {
 				for i := 0; i < 3; i++ {
-					if p.Cells[y*9+x].HasCandOf(j*3 + i + 1) {
+					if p.HasCandOf(y*9+x, j*3+i+1) {
 						s += strconv.Itoa(j*3 + i + 1)
 					} else {
-						if len(p.Cells[y*9+x].Cands) == 1 {
+						if len(p.Cells[y*9+x]) == 1 {
 							s += " "
 						} else {
 							s += "."
@@ -149,5 +200,5 @@ func (p *Board) ToS() string {
 		}
 		s += border
 	}
-	return s
+	return fmt.Sprintf("%s\n%d\n", s, p.Solved())
 }
