@@ -16,7 +16,6 @@ var p2xf [][]int
 var p2yf [][]int
 var p2gf [][]int
 
-
 type Cell struct {
 	Cands []int
 }
@@ -125,13 +124,11 @@ func (p *Board) Duplicate() *Board {
 func (p *Board) Update() bool {
 	updated := true
 	for updated {
-		updated = false
-		if p.Update1() {
-			updated = true
-		}
-		if p.Update2() {
-			updated = true
-		}
+		u1 := p.Update1()
+		u2x := p.Update2(p2xf)
+		u2y := p.Update2(p2yf)
+		u2g := p.Update2(p2gf)
+		updated = u1 || u2x || u2y || u2g
 	}
 	return updated
 }
@@ -154,35 +151,13 @@ func (p *Board) Update1() bool {
 	return updated
 }
 
-func (p *Board) Update2() bool {
+func (p *Board) Update2(p2f [][]int) bool {
 	updated := false
 	for pos := 0; pos < 9*9; pos++ {
 		if p.Cells[pos].CandsNum() > 1 {
 			for _, v := range p.Cells[pos].Cands {
 				found := false
-				for _, peer := range p2xf[pos] {
-					if p.Cells[peer].HasCandOf(v) {
-						found = true
-						break
-					}
-				}
-				if !found {
-					p.Cells[pos].Set(v)
-					break
-				}
-				found = false
-				for _, peer := range p2yf[pos] {
-					if p.Cells[peer].HasCandOf(v) {
-						found = true
-						break
-					}
-				}
-				if !found {
-					p.Cells[pos].Set(v)
-					break
-				}
-				found = false
-				for _, peer := range p2gf[pos] {
+				for _, peer := range p2f[pos] {
 					if p.Cells[peer].HasCandOf(v) {
 						found = true
 						break
