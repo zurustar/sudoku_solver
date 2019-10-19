@@ -121,14 +121,18 @@ func (p *Board) Duplicate() *Board {
 	return b
 }
 
-func (p *Board) Update() bool {
+func (p *Board) Update(mode int) bool {
 	updated := true
 	for updated {
-		u1 := p.Update1()
-		u2x := p.Update2(p2xf)
-		u2y := p.Update2(p2yf)
-		u2g := p.Update2(p2gf)
-		updated = u1 || u2x || u2y || u2g
+		if mode == 0 {
+			u1 := p.Update1()
+			u2x := p.Update2(p2xf)
+			u2y := p.Update2(p2yf)
+			u2g := p.Update2(p2gf)
+			updated = u1 || u2x || u2y || u2g
+		} else {
+			updated = p.Update1() || p.Update2(p2xf) || p.Update2(p2yf) || p.Update2(p2gf)
+		}
 	}
 	return updated
 }
@@ -225,15 +229,16 @@ func main() {
 	for i, filename := range os.Args {
 		if i != 0 {
 			b := NewBoard(filename)
-			b.Update()
+			mode := 0
+			b.Update(mode)
 			fmt.Println(b.ToS())
-			Solve(b, 0)
+			Solve(b, mode)
 		}
 	}
 }
 
-func Solve(b *Board, depth uint64) uint64 {
-	b.Update()
+func Solve(b *Board, mode int) uint64 {
+	b.Update(mode)
 	result := b.Solved()
 	if result == 1 {
 		fmt.Println(b.ToS())
@@ -254,7 +259,7 @@ func Solve(b *Board, depth uint64) uint64 {
 		for _, c := range b.Cells[pos].Cands {
 			tmpb := b.Duplicate()
 			tmpb.Cells[pos].Set(c)
-			Solve(tmpb, depth+1)
+			Solve(tmpb, mode)
 		}
 	}
 	return 0
